@@ -114,10 +114,10 @@ Stufe 3 = 12 Spiele, Stufe 4 = 14 (Futur in Stufe 3 seit 20.11.2026 (Entscheidun
   - **Ziehen** (`useZiehen`: Pointer-Events, Geist per `createPortal`, ab 8 px Bewegung, sonst Klick; `data-ziel` an Ablagefeldern): sein & haben (`SeinHabenTabelle`), te-Werkstatt-Tabelle (`EndungsTabelle`, Ziel = aktive Zeile), Verb-Familien (`FamilienSortieren`). Kein HTML5-Drag-and-Drop (iPad).
   - **Satz tippen** (`SatzTippen`, `tippAufgaben`, Baukasten Typ 14): Sätze bauen: Perfekt = 7 bauen + 3 tippen, Sätze bauen: Futur = 5 bauen + 4 Richtig/Fehler + 3 tippen (Klasse 3 nur Satzrest ≤ 2 Wörter). Erlaubt: Subjekt–Hilfsverb–Rest–Verb und Rest–Hilfsverb–Subjekt–Verb. Erstes Wort groß/klein egal, Punkt egal (nur Hinweis), sonst Groß-/Kleinschreibung genau. Nach 3 Fehlversuchen `runde.aufloesen` (Lösung, kein Feuerwerk, keine Combo).
   - **Fehler behoben:** Das Feuerwerk hatte denselben React-Schlüssel wie die Aufgabe, dadurch blieben gelöste Aufgaben stehen. Jetzt `key={'funken-' + schluessel}`. Nie zwei Geschwister mit gleichem `key` neben `{children}` setzen.
-- **Noch offen:** Merksätze und Reise-Hilfe-Texte von der Lehrkraft gegenlesen lassen, Silbenpunkte im Wörterbuch-Forscher (bisher ohne), Veröffentlichung (Pages-Quelle, push nach Freigabe), Etappe 2 Arbeitsblätter, Etappe 3 Basis-Version.
+- **Noch offen:** Merksätze und Reise-Hilfe-Texte von der Lehrkraft gegenlesen lassen, Silbenpunkte im Wörterbuch-Forscher (bisher ohne), Etappe 2 Arbeitsblätter, Etappe 3 Basis-Version.
 - Merksatz-Texte in `src/saetze.js` sind Entwurf (nach dem „Fachlichen Rahmen“), von der Lehrkraft prüfen lassen.
 - Thorsten-Stimme später. Neue Aufgabentypen in `Baukasten_Aufgabentypen.md` ergänzen.
-- Nach Veröffentlichung: Eintrag auf mitlaeuferfotografie.github.io und in der Tabelle „Die Apps“ im Kern.
+- **Veröffentlicht am 21.11.2026** (Commit 307e26a, Actions-Lauf grün, Pages-Quelle „GitHub Actions“). Auf mitlaeuferfotografie.github.io eingetragen (Deutsch, „Klasse 3/4 · Zeitformen der Verben“, Unterlink Klasse 3). In der Tabelle „Die Apps“ im Kern eingetragen.
 
 ## Prüfliste nach jeder Änderung
 - Fachlich und sprachlich prüfen (Rechtschreibung, Zeichensetzung, „ “).
