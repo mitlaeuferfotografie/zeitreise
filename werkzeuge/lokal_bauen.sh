@@ -3,8 +3,8 @@
 # Aufruf im Repo-Ordner (Git Bash):  bash werkzeuge/lokal_bauen.sh   danach  node werkzeuge/server.mjs  → http://localhost:5173/
 # Abhängigkeiten: Node 20 + npm (lädt react, lucide-react, qrcode-generator, esbuild, tailwindcss fest versioniert nach build/).
 #
-# Schalter BASIS: Der Quelltext fragt __BASIS__ ab. Heute wird nur die normale Version gebaut (__BASIS__=false).
-# Etappe 3: zweiter Bau mit --define:__BASIS__=true nach _site/basis/ (Muster: Redezeichen-Helden, werkzeuge/bauen.sh).
+# Schalter BASIS: Der Quelltext fragt __BASIS__ ab. Gebaut werden beide Versionen (Etappe 3, 21.11.2026):
+# normal nach _site/ (__BASIS__=false), Basis nach _site/basis/ (__BASIS__=true, Titel „Zeitreise – Basis“).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 rm -rf _site build/src
@@ -17,9 +17,12 @@ if [ ! -d node_modules/qrcode-generator ]; then
 fi
 npx esbuild src/index.js --bundle --minify --loader:.js=jsx --jsx=automatic \
   --define:process.env.NODE_ENV='"production"' --define:__BASIS__=false --outfile=../_site/bundle.js
+mkdir -p ../_site/basis
+npx esbuild src/index.js --bundle --minify --loader:.js=jsx --jsx=automatic   --define:process.env.NODE_ENV='"production"' --define:__BASIS__=true --outfile=../_site/basis/bundle.js
 # Tailwind wird beim Bauen erzeugt (kein CDN, keine Verbindung zu Drittanbietern)
 npx tailwindcss@3 -i src/tailwind-input.css -o ../_site/tailwind.css \
   --content "src/**/*.{js,jsx},../public/index.html" --minify
+cp ../_site/tailwind.css ../_site/basis/tailwind.css
 cd ..
 node -e "
   const fs = require('fs');
@@ -30,6 +33,7 @@ node -e "
   h = h.replace('href=\"tailwind.css\"', 'href=\"tailwind.css?v=' + v + '\"');
   h = h.replace('</body>', '  <script src=\"bundle.js?v=' + v + '\"></script>\n  </body>');
   fs.writeFileSync('_site/index.html', h);
+  fs.writeFileSync('_site/basis/index.html', h.replace('Zeitreise – Zeitformen der Verben</title>', 'Zeitreise – Basis</title>'));
 "
 # mitliefern, falls vorhanden
 for d in fonts audio bilder modelle vosk; do if [ -d public/$d ]; then cp -r public/$d _site/$d; fi; done

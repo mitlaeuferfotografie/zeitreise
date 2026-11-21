@@ -53,6 +53,10 @@ const ADMIN_PASSWORD = 'Zeit123'; // von der Lehrkraft festgelegt (20.11.2026)
 // Vorlesen (Knöpfe „Nochmal hören“ / „Vorlesen“) nur in der Basis-Version (Entscheidung der Lehrkraft 20.11.2026).
 // Die Texte mit festen Schlüsseln in src/saetze.js bleiben für die Basis-Version erhalten.
 const VORLESEN = BASIS;
+// Basis-Version (Etappe 3, 21.11.2026): etwa 2/3 der Aufgaben, keine Profi-Aufgaben, größere Schrift
+const BM = (n) => (BASIS ? Math.max(1, Math.round((n * 2) / 3)) : n);
+const PROFI_AN = !BASIS;
+const BASIS_STIL = BASIS ? 'html { font-size: 112.5%; }' : '';
 
 const STANDARD = { stufe: 4, anim: true };
 
@@ -280,6 +284,30 @@ function sprich(...schluessel) {
     const v = deutscheStimme(); if (v) u.voice = v;
     window.speechSynthesis.speak(u);
   } catch (e) { /* ohne Vorlesen weiter */ }
+}
+
+function sprichText(text) {
+  if (!text || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text.replace(/[_…]+/g, ' … ').replace(/\s+/g, ' ').trim());
+    u.lang = 'de-DE'; u.rate = 0.9;
+    const v = deutscheStimme(); if (v) u.voice = v;
+    window.speechSynthesis.speak(u);
+  } catch (e) { /* ohne Vorlesen weiter */ }
+}
+// Aufgabe vorlesen: liest den mit data-vorlesen markierten Teil der Aufgabe (sonst die Tafel), ohne Antwort-Knöpfe,
+// Eingabefelder und Auswahl-Chips (data-still) – so wird die gesuchte Form nie verraten.
+function vorlesenAufgabe(wurzel) {
+  if (!wurzel) return;
+  const quelle = wurzel.querySelector('[data-vorlesen]') || wurzel.querySelector('.bg-amber-50') || wurzel;
+  const k = quelle.cloneNode(true);
+  k.querySelectorAll('button:not([data-wort]), input, textarea, [data-still], svg').forEach(e => e.remove());
+  // leere Lücken (gestrichelte Platzhalter) als „…“ lesen, damit die Pause hörbar ist
+  k.querySelectorAll('.border-dashed').forEach(e => { if (!e.textContent.trim()) e.textContent = ' … '; });
+  // Wörter in getrennten Elementen nicht zusammenkleben
+  k.querySelectorAll('*').forEach(e => e.append(' '));
+  sprichText(k.textContent.replace(/\s+([.,!?])/g, '$1'));
 }
 
 // ==========================================
@@ -649,8 +677,8 @@ const HILFE = {
   seinHaben: { play: 'Ziehe die Formen von sein und haben in die richtige Zeile. Danach wählst du in Sätzen die passende Form.', learn: 'Du lernst die Formen von sein und haben im Präsens und im Präteritum.' },
   woerterbuch: { play: 'Schau dir den Wörterbuch-Ausschnitt an. Steht hinter der Grundform noch etwas? Dann ist das Verb unregelmäßig. Dort findest du auch das Präteritum.', learn: 'Du lernst, unregelmäßige Verben mit dem Wörterbuch zu erkennen.' },
   familien: { play: 'Jede Karte zeigt ein Verb in der Grundform und im Präteritum. Ziehe die Karten in die Häuser ihrer Familien.', learn: 'Du lernst, dass sich viele unregelmäßige Verben nach demselben Muster verändern.' },
-  treppe: { play: 'Oben steht die Grundform. Schreibe die Formen für alle Personen in die Tabelle, in Einzahl und Mehrzahl. Über jeder Tafel steht, welche Zeitform gemeint ist. Beim Perfekt schreibst du die ge-Form nur einmal.', learn: 'Du lernst, die Formen unregelmäßiger Verben sicher zu schreiben.' },
-  textmaschine: { play: 'Tippe zuerst alle Verben im Text an. Dann schreibe jedes Verb in der neuen Zeitform.', learn: 'Du lernst, einen ganzen Text in eine andere Zeitform zu setzen.' },
+  treppe: { play: (BASIS ? 'Oben steht die Grundform. Wähle für jede Person die richtige Form aus, in Einzahl und Mehrzahl.' : 'Oben steht die Grundform. Schreibe die Formen für alle Personen in die Tabelle, in Einzahl und Mehrzahl.') + ' Über jeder Tafel steht, welche Zeitform gemeint ist. Beim Perfekt schreibst du die ge-Form nur einmal.', learn: 'Du lernst, die Formen unregelmäßiger Verben sicher zu schreiben.' },
+  textmaschine: { play: BASIS ? 'Tippe zuerst alle Verben im Text an. Dann wähle für jedes Verb die Form in der neuen Zeitform.' : 'Tippe zuerst alle Verben im Text an. Dann schreibe jedes Verb in der neuen Zeitform.', learn: 'Du lernst, einen ganzen Text in eine andere Zeitform zu setzen.' },
   perfektWerkstatt: { play: 'Entscheide zuerst, ob haben oder sein in die Lücke passt. Dann baust du die ge-Form aus Bausteinen.', learn: 'Du lernst, wie das Perfekt gebildet wird.' },
   klammerPerfekt: { play: 'Bringe die Satzbausteine in die richtige Reihenfolge. Das Hilfsverb steht an zweiter Stelle, die ge-Form am Ende. Zum Schluss schreibst du drei Sätze selbst im Perfekt.', learn: 'Du lernst, wo die zwei Teile des Perfekts im Satz stehen.' },
   futur: { play: 'Baue Sätze mit werden und der Grundform. Danach findest du Fehler in Sätzen und reparierst sie. Zum Schluss schreibst du drei Sätze selbst im Futur.', learn: 'Du lernst, wie man im Futur über die Zukunft spricht.' },
@@ -798,7 +826,7 @@ function useRunde({ aufgaben, skill, onFinish, onTipp }) {
     ton('falsch');
     fehlerHier.current = true; setCombo(0);
     folge.current += 1;
-    if (folge.current >= 3 && tipp) { folge.current = 0; onTipp(tipp); }
+    if (folge.current >= (BASIS ? 2 : 3) && tipp) { folge.current = 0; onTipp(tipp); }
     setMsg({ art: 'falsch', text });
   };
   const info = (text) => setMsg({ art: 'info', text });
@@ -820,7 +848,10 @@ function useRunde({ aufgaben, skill, onFinish, onTipp }) {
       if (falschGeloest.length) { setWdh(falschGeloest); setPhase('wiederholung'); setPos(0); return; }
     }
     const punkte = Math.max(0, Object.values(erste.current).filter(Boolean).length - abzug.current);
-    onFinish(Math.round((punkte / Math.max(1, maxPunkte)) * 10), 10, { serie: Math.max(besteSerie.current, combo) });
+    // Basis (wie Redezeichen-Helden): fehlerfrei = 10, sonst aufgerundet, höchstens 9
+    const anteil = punkte / Math.max(1, maxPunkte);
+    const sterne = BASIS ? (punkte >= maxPunkte ? 10 : Math.min(9, Math.ceil(anteil * 10))) : Math.round(anteil * 10);
+    onFinish(sterne, 10, { serie: Math.max(besteSerie.current, combo) });
   };
   return { aufgabe: aufgaben[idx], idx, nr: pos + 1, anzahl, phase, schluessel: `${phase}-${pos}`, geloest, msg, combo, rekord, erst, gut, falsch, info, leer, geschafft, aufloesen, minus, weiter };
 }
@@ -903,18 +934,22 @@ function RundenRahmen({ runde, children }) {
           <div className={`h-full rounded-full ${phase === 'wiederholung' ? 'bg-amber-400' : 'bg-cyan-400'}`} style={{ width: `${((nr - 1) / anzahl) * 100}%` }} />
         </div>
         <ZeitEnergie combo={combo} />
+        {VORLESEN && <button onClick={(e) => vorlesenAufgabe(e.currentTarget.closest('.space-y-5')?.querySelector('.aufgabe-inhalt'))} className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-700 border border-cyan-400/40 text-cyan-300 font-bold text-sm px-3 py-1.5 rounded-xl" aria-label="Aufgabe vorlesen"><Volume2 className="w-5 h-5" /> Vorlesen</button>}
       </div>
       {runde.rekord.neu && combo >= runde.rekord.neu && <div className="-mt-2 text-right"><RekordMeldung serie={combo} /></div>}
       {phase === 'wiederholung' && nr === 1 && <p className="text-amber-200 text-sm">Diese Aufgaben waren schwierig. Übe sie noch einmal. Das zählt nicht für die Sterne.</p>}
       {/* Erfolgs-Feuerwerk in allen Spielen, sobald eine Aufgabe gelöst ist (Wunsch der Lehrkraft 20.11.2026) */}
-      <div className="relative">
+      <div className="relative aufgabe-inhalt">
         {children}
         {geloest && msg?.art === 'gut' && <Funken key={'funken-' + schluessel} gross={gross} />}   {/* eigener Schlüssel! Gleicher Schlüssel wie die Aufgabe ließ alte Aufgaben stehen */}
         {geloest && voll && msg?.art === 'gut' && <EnergieVoll key={'energie-' + combo} combo={combo} />}
       </div>
       <div className="min-h-[3.5rem] flex flex-col sm:flex-row items-center gap-3">
         {msg && (
-          <p className={`flex-1 rounded-xl px-4 py-3 font-bold text-left anim-pop ${msg.art === 'gut' ? 'bg-lime-500/15 border-2 border-lime-400/60 text-lime-200' : msg.art === 'falsch' ? 'bg-rose-500/15 border-2 border-rose-400/60 text-rose-200' : 'bg-slate-800 border-2 border-slate-600 text-slate-200'}`}>{msg.text}</p>
+          <p className={`flex-1 rounded-xl px-4 py-3 font-bold text-left anim-pop ${msg.art === 'gut' ? 'bg-lime-500/15 border-2 border-lime-400/60 text-lime-200' : msg.art === 'falsch' ? 'bg-rose-500/15 border-2 border-rose-400/60 text-rose-200' : 'bg-slate-800 border-2 border-slate-600 text-slate-200'}`}>
+            {msg.text}
+            {VORLESEN && <button onClick={() => sprichText(msg.text)} className="ml-2 align-middle text-cyan-300 hover:text-white" aria-label="Rückmeldung vorlesen"><Volume2 className="w-5 h-5 inline" /></button>}
+          </p>
         )}
         {geloest && (
           <button onClick={weiter} className="bg-cyan-400 hover:bg-cyan-300 text-cyan-950 font-black text-lg py-3 px-8 rounded-xl shadow-[0_4px_0_rgba(14,116,144,1)] active:translate-y-1 uppercase tracking-wider flex items-center gap-2 flex-shrink-0">
@@ -994,7 +1029,38 @@ function WahlKnopf({ onClick, children, aus = false, cls = '', ...rest }) {
 }
 
 // Eingabefeld für Verbformen (Großschreibung zählt als Fehler, keine Autokorrektur)
-function TippFeld({ wert, setWert, status, onEnter, breite = 'w-36', label }) {
+// Basis: drei Formen zum Antippen (richtige Form + typische Kinderfehler, formOptionen)
+function formOptionen(v, art, p) {
+  const st = wortstamm(v);
+  const richtig = art === 'p2' ? partizip(v) : art === 'hv' ? perfekt(v)[p].hilfsverb : (art === 'praesens' ? praesens(v) : praeteritum(v))[p].text;
+  const prtEnd = ['te', 'test', 'te', 'ten', 'tet', 'ten'], prEnd = ['e', 'st', 't', 'en', 't', 'en'];
+  let kand = [];
+  if (art === 'praeteritum') kand = [v.art === 'u' ? st + prtEnd[p] : praesens(v)[p].text, praesens(v)[p].text, praeteritum(v)[(p + 3) % 6].text, praeteritum(v)[(p + 1) % 6].text, st + 'e' + prtEnd[p]];
+  else if (art === 'praesens') kand = [praesens(v)[(p + 1) % 6].text, praeteritum(v)[p].text, praesens(v)[(p + 3) % 6].text, st + prEnd[(p + 2) % 6]];
+  else if (art === 'p2') kand = [v.art === 'u' ? 'ge' + st + 't' : 'ge' + st + 'en', praeteritum(v)[0].text, 'ge' + v.g, v.g];
+  else if (art === 'hv') { const eig = HV_FORMEN[v.hv], ander = HV_FORMEN[v.hv === 'sein' ? 'haben' : 'sein']; kand = [ander[p], eig[(p + 1) % 6], eig[(p + 3) % 6], ander[(p + 1) % 6]]; }
+  const falsch = [];
+  for (const k of kand) {
+    if (!k || k === richtig || falsch.includes(k)) continue;
+    if ((art === 'praesens' || art === 'praeteritum') && formRichtig(v, art, p, k)) continue;
+    falsch.push(k);
+    if (falsch.length === 2) break;
+  }
+  return mische([richtig, ...falsch]);
+}
+function TippFeld({ wert, setWert, status, onEnter, breite = 'w-36', label, optionen = null }) {
+  if (BASIS && optionen) {
+    return (
+      <span className="inline-flex flex-wrap gap-1 align-middle" data-still role="group" aria-label={label}>
+        {optionen.map(o => (
+          <button key={o} type="button" disabled={status === 'richtig'} onClick={() => setWert(o)}
+            className={`rounded-lg border-2 px-2 py-0.5 text-lg md:text-xl font-bold leading-snug ${wert === o
+              ? (status === 'falsch' ? 'border-rose-500 bg-rose-100 text-rose-900' : status === 'richtig' ? 'border-lime-600 bg-lime-100 text-lime-900' : 'border-cyan-600 bg-cyan-100 text-cyan-950')
+              : status === 'richtig' ? 'hidden' : 'border-stone-300 bg-white text-slate-800 hover:bg-stone-100'}`}>{o}</button>
+        ))}
+      </span>
+    );
+  }
   const farbe = status === 'richtig' ? 'border-lime-600 bg-lime-50 text-lime-900' : status === 'falsch' ? 'border-rose-500 bg-rose-50 text-rose-900' : status === 'leer' ? 'border-amber-500 border-dashed bg-amber-50 text-slate-900' : 'border-slate-400 bg-white text-slate-900';
   return (
     <input value={wert} onChange={e => setWert(e.target.value)} onKeyDown={e => e.key === 'Enter' && onEnter && onEnter()}
@@ -1059,7 +1125,7 @@ const PROFI_PERSONEN = {
 function endungsAufgaben(spielId, stufe, zeit, n) {
   // Stufe 3: nur regelmäßige Verben ohne Besonderheit (also z. B. nie putzen); Stufe 4 zusätzlich Profi-Aufgaben am Ende
   const leicht = verbenFuer(stufe, v => v.art === 'r' && !besonderheit(v));
-  const profi = stufe === 4 ? verbenFuer(4, v => v.art === 'r' && PROFI_PERSONEN[zeit][besonderheit(v)]) : [];
+  const profi = stufe === 4 && PROFI_AN ? verbenFuer(4, v => v.art === 'r' && PROFI_PERSONEN[zeit][besonderheit(v)]) : [];
   const nProfi = profi.length ? Math.round(n * 0.2) : 0;
   const personen = mische([0, 1, 2, 3, 4, 5, ...mische([0, 1, 2, 3, 4, 5])]);   // alle sechs Personen kommen vor
   const a = waehle(spielId, leicht.map(v => ({ key: v.g, v })), n - nProfi)
@@ -1074,7 +1140,7 @@ function EndungsAufgabe({ runde, aufgabe, zeit, stufe }) {
   const f = (zeit === 'praesens' ? praesens(v) : praeteritum(v))[aufgabe.person];
   const [pr] = useState(() => pronomen(aufgabe.person));
   const [gewaehlt, setGewaehlt] = useState(null);
-  const leiste = LEISTE[zeit][stufe];
+  const leiste = LEISTE[zeit][BASIS ? 3 : stufe];
   const Z = ZEITEN[zeit];
   const tippe = (e) => {
     if (runde.geloest) return;
@@ -1109,7 +1175,7 @@ function EndungsTabelle({ runde, aufgabe, zeit, stufe }) {
   const formen = (zeit === 'praesens' ? praesens(v) : praeteritum(v));
   const [fertig, setFertig] = useState([]);
   const aktiv = fertig.length;
-  const leiste = LEISTE[zeit][stufe];
+  const leiste = LEISTE[zeit][BASIS ? 3 : stufe];
   const Z = ZEITEN[zeit];
   const zz = useZiehen((e) => tippe(e));          // Endung in die aktive Zeile ziehen
   const tippe = (e) => {
@@ -1146,10 +1212,10 @@ function EndungsTabelle({ runde, aufgabe, zeit, stufe }) {
 
 function EndungsSpiel({ spiel, stufe, onFinish, onTipp, zeit }) {
   const [aufgaben] = useState(() => {
-    const n = zeit === 'praesens' ? 10 : 8;
+    const n = BM(zeit === 'praesens' ? 10 : 8);
     const liste = endungsAufgaben(spiel.id, stufe, zeit, n);
     if (zeit === 'praeteritum') {
-      const tab = zufall(verbenFuer(stufe, v => v.art === 'r' && (stufe === 4 || !besonderheit(v))));
+      const tab = zufall(verbenFuer(stufe, v => v.art === 'r' && ((stufe === 4 && PROFI_AN) || !besonderheit(v))));
       liste.push({ key: 'tabelle-' + tab.g, verb: tab.g, tabelle: true });
     }
     return liste;
@@ -1215,6 +1281,7 @@ function torAufgaben(spielId, stufe, art) {
   }
   // Detektiv: 15 Sätze, erste Hälfte eindeutig, zweite Hälfte mit Fallen
   const zeiten = stufe === 4 ? ['praeteritum', 'perfekt', 'praesens', 'futur'] : ['praeteritum', 'praesens', 'futur'];
+  if (BASIS) return nichtHintereinander(mische([...zeiten, ...zeiten, ...zeiten, ...zeiten]).slice(0, 10).map(z => ziehe(z, true)));
   const eindeutig = mische([...zeiten, ...zeiten, ...zeiten]).slice(0, 7).map(z => ziehe(z, true));
   const fallen = waehle(spielId, DETEKTIV_FALLEN.filter(f => f.stufe <= stufe).map(f => ({ ...f, key: f.satz })), 5)
     .map(f => ({ key: f.key, verb: f.satz, zeit: f.zeit, satz: { text: f.satz }, grund: f.grund, falle: true }));
@@ -1234,7 +1301,7 @@ function TorAufgabe({ runde, aufgabe, zeiten }) {
   return (
     <div className="space-y-5">
       <Leuchttafel zeit={null} titel={aufgabe.falle ? 'Vorsicht, Falle?' : 'Welche Zeitform?'}>
-        <p className="text-3xl md:text-4xl font-bold text-center py-6 text-slate-900">{aufgabe.satz.text}</p>
+        <p data-vorlesen className="text-3xl md:text-4xl font-bold text-center py-6 text-slate-900">{aufgabe.satz.text}</p>
       </Leuchttafel>
       <div className={`grid gap-3 ${zeiten.length === 2 ? 'grid-cols-2' : zeiten.length === 3 ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
         {zeiten.map(z => (
@@ -1265,7 +1332,7 @@ function ToreSpiel({ spiel, stufe, onFinish, onTipp }) {
 // das Kind tippt vor dem Aufprall das Tor JETZT (Präsens) oder FRÜHER (Präteritum). Combo bei Treffern in Folge,
 // das Tempo steigt mit jedem Wort; Klasse 3 fällt langsamer. Auch mit Tastatur: ← / 1 = JETZT, → / 2 = FRÜHER.
 // Sterne: jede Entscheidung zählt, ein ohne Tippen gefallenes Wort zählt als Fehler (nicht für „Das kann ich schon“).
-const REGEN_ANZAHL = 30;
+const REGEN_ANZAHL = BASIS ? 20 : 30;
 const REGEN_TORE = [
   { zeit: 'praesens', titel: 'jetzt', taste: ['ArrowLeft', '1'], cls: 'border-rose-400 bg-rose-950/60 text-rose-100', an: 'border-lime-300 bg-lime-700 text-white shadow-[0_0_50px_rgba(163,230,53,0.8)]' },
   { zeit: 'praeteritum', titel: 'früher', taste: ['ArrowRight', '2'], cls: 'border-amber-400 bg-amber-950/60 text-amber-100', an: 'border-lime-300 bg-lime-700 text-white shadow-[0_0_50px_rgba(163,230,53,0.8)]' },
@@ -1385,6 +1452,67 @@ function ZeitRegen({ spiel, stufe, onFinish }) {
   );
 }
 
+// Basis-Version (Entscheidung der Lehrkraft 21.11.2026): ruhige Fassung des Zeit-Regens wie der Wörter-Sortierer der
+// Redezeichen-Helden – die Verbform steht still da, kein Fallen, kein Zeitdruck, keine Combo. 20 Formen.
+// Nach einem Fehler bleibt die Erklärung stehen, bis das Kind „Weiter“ tippt. Vorlesen der Form erlaubt (Erkennen-Aufgabe).
+function ZeitSortierer({ spiel, stufe, onFinish }) {
+  const [woerter] = useState(() => torAufgaben(spiel.id, stufe, 'regen'));
+  const [idx, setIdx] = useState(0);
+  const [antwort, setAntwort] = useState(null);         // { tor, richtig }
+  const punkte = useRef(0), uhr = useRef(null);
+  const track = useTrack();
+  const wort = woerter[idx];
+  useEffect(() => () => clearTimeout(uhr.current), []);
+  const weiter = () => {
+    clearTimeout(uhr.current); setAntwort(null);
+    if (idx + 1 < woerter.length) setIdx(i => i + 1);
+    else {
+      const p = punkte.current, max = woerter.length;
+      onFinish(p >= max ? 10 : Math.min(9, Math.ceil((p / max) * 10)), 10);
+    }
+  };
+  const entscheide = (tor) => {
+    if (antwort) return;
+    const richtig = tor === wort.zeit;
+    track('erkennen', richtig);
+    if (richtig) { punkte.current += 1; ton('richtig'); uhr.current = setTimeout(weiter, 900); }
+    else ton('falsch');
+    setAntwort({ tor, richtig });
+  };
+  return (
+    <div className="space-y-4 select-none">
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-bold text-slate-300 whitespace-nowrap">Wort {idx + 1} von {woerter.length}</span>
+        <div className="flex-1 h-2.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${(idx / woerter.length) * 100}%` }} /></div>
+      </div>
+      <Leuchttafel zeit={null} titel="Jetzt oder früher?">
+        <div className="flex items-center justify-center gap-3 py-8">
+          <p data-vorlesen className={`text-4xl md:text-5xl font-black text-center ${antwort?.richtig ? 'text-lime-700' : antwort ? 'text-rose-700' : 'text-slate-900'}`}>{wort.text}</p>
+          <button onClick={() => sprichText(wort.text)} className="text-cyan-700 hover:text-cyan-900" aria-label="Vorlesen"><Volume2 className="w-8 h-8" /></button>
+        </div>
+      </Leuchttafel>
+      <div className="grid grid-cols-2 gap-3">
+        {REGEN_TORE.map(t => (
+          <button key={t.zeit} onClick={() => entscheide(t.zeit)} disabled={!!antwort}
+            className={`rounded-2xl border-4 border-b-8 py-5 md:py-7 flex flex-col items-center gap-1 font-black transition-all active:translate-y-1 ${antwort?.tor === t.zeit ? (antwort.richtig ? 'bg-lime-200 border-lime-600 text-lime-900' : 'bg-rose-200 border-rose-500 text-rose-900') : TOR[t.zeit].cls} ${antwort && antwort.tor !== t.zeit ? 'opacity-60' : ''}`}>
+            <DoorOpen className="w-9 h-9" />
+            <span className="text-2xl md:text-3xl uppercase tracking-wider">{t.titel}</span>
+            <span className="text-base">{ZEITEN[t.zeit].name}</span>
+          </button>
+        ))}
+      </div>
+      {antwort && !antwort.richtig && (
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <p className="flex-1 rounded-xl px-4 py-3 font-bold text-left bg-rose-500/15 border-2 border-rose-400/60 text-rose-100 anim-pop">
+            „{wort.text}“ ist {ZEITEN[wort.zeit].name}. {wort.zeit === 'praesens' ? 'Es passiert jetzt.' : 'Es ist früher passiert.'}
+          </p>
+          <button onClick={weiter} className="bg-cyan-400 hover:bg-cyan-300 text-cyan-950 font-black text-lg py-3 px-8 rounded-xl shadow-[0_4px_0_rgba(14,116,144,1)] active:translate-y-1 uppercase tracking-wider flex items-center gap-2">Weiter <ArrowRight className="w-5 h-5" /></button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ==========================================
 // SPIEL 3, 9, 14: Texte (Finde den Unterschied, Text-Zeitmaschine, Zeit-Chaos reparieren)
 // ==========================================
@@ -1422,6 +1550,15 @@ function textWoerter(textObj, zeitFuer) {
   }
   return woerter;
 }
+// Basis: Text nach dem Satz abschneiden, in dem das 3. Verb steht (also 3–4 Verben)
+function basisText(t) {
+  if (!BASIS) return t;
+  const saetze = t.text.match(/[^.!?]+[.!?]+\s*/g) || [t.text];
+  let out = '', n = 0;
+  for (const satz of saetze) { out += satz; n += (satz.match(/\{/g) || []).length; if (n >= 3) break; }
+  return { ...t, text: out.trim() };
+}
+const texteFuer = (stufe) => texteDerStufe(stufe).map(basisText);
 // Höchstens ein Verb pro Satz → das Partizip lässt sich eindeutig ans Satzende stellen
 const perfektTauglich = (textObj) => textObj.text.split(/[.!?]/).every(satz => (satz.match(/\{/g) || []).length <= 1);
 
@@ -1440,7 +1577,7 @@ function TippText({ woerter, markiert, onTipp, status = {}, felder = null, aus =
                 <TippFeld {...f} />
               </span>
             ) : (
-              <button onClick={() => !aus && onTipp(i)} disabled={aus}
+              <button data-wort onClick={() => !aus && onTipp(i)} disabled={aus}
                 className={`rounded-md px-1 -mx-0.5 transition-colors ${status[i] === 'richtig' ? 'bg-lime-200 text-lime-900 font-bold' : status[i] === 'falsch' ? 'bg-rose-200 text-rose-900 line-through decoration-2' : markiert.has(i) ? 'bg-cyan-200 font-bold' : 'hover:bg-stone-200'}`}>
                 {w.t}
               </button>
@@ -1505,9 +1642,9 @@ function UnterschiedAufgabe({ runde, aufgabe }) {
 }
 function FindeUnterschied({ spiel, stufe, onFinish, onTipp }) {
   const [aufgaben] = useState(() => {
-    const texte = waehle(spiel.id, texteDerStufe(stufe).map(t => ({ key: t.id, text: t })), 3);
-    // Stufe 4: der letzte perfekt-taugliche Text wird zum Profi-Zwilling Präsens/Perfekt
-    const profi = stufe === 4 ? [...texte].reverse().find(x => perfektTauglich(x.text)) : null;
+    const texte = waehle(spiel.id, texteFuer(stufe).map(t => ({ key: t.id, text: t })), BM(3));
+    // Stufe 4: der letzte perfekt-taugliche Text wird zum Profi-Zwilling Präsens/Perfekt (nicht in der Basis)
+    const profi = stufe === 4 && PROFI_AN ? [...texte].reverse().find(x => perfektTauglich(x.text)) : null;
     return texte.map(x => ({ ...x, zielB: x === profi ? 'perfekt' : 'praeteritum', punkte: textTeile(x.text, 'praesens').filter(y => y.v).length }))
       .sort((x, y) => (x.zielB === 'perfekt') - (y.zielB === 'perfekt'));
   });
@@ -1534,6 +1671,8 @@ function TextAufgabe({ runde, aufgabe, modus }) {
   const ersteSuche = useRef(null);       // vi -> beim ersten Prüfen richtig eingeordnet?
   const ersteSchreib = useRef(false);
   const ausgang = (vi) => woerter.filter(w => w.verb && w.vi === vi).map(w => w.t).join(' … ');
+  const optionen = useMemo(() => (BASIS ? Object.fromEntries(zielWoerter.map((w, i) => [i, zuSchreiben(w)
+    ? formOptionen(verbByGrundform[w.v], w.teil === 'ganz' ? ziel : w.teil, w.p) : null])) : {}), [zielWoerter]);
 
   const pruefeFinden = () => {
     const r = pruefeMarkierung(woerter, markiert, soll);
@@ -1574,7 +1713,7 @@ function TextAufgabe({ runde, aufgabe, modus }) {
   };
   const felder = schritt === 'schreiben' ? Object.fromEntries(zielWoerter.map((w, i) => [w, i]).filter(([w]) => zuSchreiben(w)).map(([w, i]) => [i, {
     wert: eingaben[i] || '', status: feldStatus[i], breite: w.teil === 'hv' ? 'w-24 md:w-28' : 'w-32 md:w-36', label: `${ausgang(w.vi)} im ${ZEITEN[ziel].name}`, onEnter: pruefeSchreiben,
-    oben: w.teil === 'p2' ? 'ge-Form' : ausgang(w.vi),
+    oben: w.teil === 'p2' ? 'ge-Form' : ausgang(w.vi), optionen: optionen[i],
     setWert: (x) => { setEingaben(e => ({ ...e, [i]: x })); setFeldStatus(s => ({ ...s, [i]: s[i] === 'richtig' ? 'richtig' : '' })); },
   }])) : null;
   const anzeigeZeit = modus === 'chaos' ? basis : (schritt === 'finden' ? quelle : ziel);
@@ -1584,7 +1723,7 @@ function TextAufgabe({ runde, aufgabe, modus }) {
         <p className="text-sm text-stone-500 mb-2">
           {schritt === 'finden'
             ? (modus === 'chaos' ? `Die Geschichte steht im ${ZEITEN[basis].name}. Tippe die Verben an, die aus der Zeit gefallen sind.` : `Tippe alle Verben an. (Der Text steht im ${ZEITEN[quelle].name}.)`)
-            : (modus === 'chaos' ? `Repariere die Verben: Schreibe sie im ${ZEITEN[ziel].name}.` : `Schreibe jedes Verb im ${ZEITEN[ziel].name}.`)}
+            : (modus === 'chaos' ? `Repariere die Verben: ${BASIS ? 'Wähle' : 'Schreibe'} sie im ${ZEITEN[ziel].name}.` : `${BASIS ? 'Wähle' : 'Schreibe'} jedes Verb im ${ZEITEN[ziel].name}.`)}
         </p>
         <TippText woerter={schritt === 'finden' ? woerter : zielWoerter} markiert={schritt === 'finden' ? markiert : new Set()} status={schritt === 'finden' ? status : {}} felder={felder} aus={runde.geloest || schritt !== 'finden'}
           onTipp={i => { setMarkiert(m => umschalten(m, i)); setStatus({}); }} />
@@ -1598,7 +1737,7 @@ function TextAufgabe({ runde, aufgabe, modus }) {
 }
 function TextSpiel({ spiel, stufe, onFinish, onTipp, modus }) {
   const [aufgaben] = useState(() => {
-    const pool = texteDerStufe(stufe).map(t => ({ key: t.id, text: t }));
+    const pool = texteFuer(stufe).map(t => ({ key: t.id, text: t }));
     const erster = waehle(spiel.id, pool, 1)[0];
     // Stufe 4: der zweite Text ist (wenn möglich) ein Perfekt-Text – dafür nur perfekt-taugliche Texte
     const perfektZweiter = stufe === 4 && (modus === 'chaos' || Math.random() < 0.5);
@@ -1700,7 +1839,7 @@ function SeinHabenLuecke({ runde, aufgabe }) {
 function SeinHaben({ spiel, onFinish, onTipp }) {
   const [aufgaben] = useState(() => [
     { key: 'tabelle', tabelle: true, verb: zufall(['sein', 'haben']) },
-    ...nichtHintereinander(waehle(spiel.id, SEIN_HABEN.map(s => ({ ...s, key: s.satz })), 9), x => x.verb + x.zeit),
+    ...nichtHintereinander(waehle(spiel.id, SEIN_HABEN.map(s => ({ ...s, key: s.satz })), BM(9)), x => x.verb + x.zeit),
   ]);
   const runde = useRunde({ aufgaben, skill: 'unregelmaessig', onFinish, onTipp });
   const A = runde.aufgabe.tabelle ? SeinHabenTabelle : SeinHabenLuecke;
@@ -1763,8 +1902,8 @@ function WoerterbuchAufgabe({ runde, aufgabe }) {
 }
 function WoerterbuchForscher({ spiel, stufe, onFinish, onTipp }) {
   const [aufgaben] = useState(() => {
-    const unreg = waehle(spiel.id + '-u', verbenFuer(stufe, v => v.art === 'u').map(v => ({ key: v.g, v })), 5);
-    const reg = waehle(spiel.id + '-r', verbenFuer(stufe, v => v.art === 'r').map(v => ({ key: v.g, v })), 5);
+    const unreg = waehle(spiel.id + '-u', verbenFuer(stufe, v => v.art === 'u').map(v => ({ key: v.g, v })), BM(5));
+    const reg = waehle(spiel.id + '-r', verbenFuer(stufe, v => v.art === 'r').map(v => ({ key: v.g, v })), BM(5));
     const alle = verbenFuer(stufe);
     return mische([...unreg, ...reg]).map(x => {
       const andere = mische(alle.filter(v => v.g !== x.v.g)).slice(0, 3).map(v => v.g);
@@ -1826,10 +1965,10 @@ function FamilienSortieren({ runde, aufgabe }) {
 function VerbFamilien({ spiel, stufe, onFinish, onTipp }) {
   const [aufgaben] = useState(() => {
     const moeglich = Object.keys(FAMILIEN).filter(f => f !== 'misch' && f !== 'einzel' && verbenFuer(stufe, v => v.fam === f).length >= 2);
-    const familien = waehle(spiel.id, moeglich.map(f => ({ key: f })), Math.min(4, moeglich.length)).map(x => x.key);
+    const familien = waehle(spiel.id, moeglich.map(f => ({ key: f })), Math.min(BASIS ? 3 : 4, moeglich.length)).map(x => x.key);
     let karten = [];
     familien.forEach(f => { karten = karten.concat(mische(verbenFuer(stufe, v => v.fam === f)).slice(0, 4).map(v => v.g)); });
-    karten = mische(karten).slice(0, 12);
+    karten = mische(karten).slice(0, BASIS ? 8 : 12);
     return [{ key: familien.join('-'), familien, karten: mische(karten), punkte: karten.length }];
   });
   const runde = useRunde({ aufgaben, skill: 'unregelmaessig', onFinish, onTipp });
@@ -1914,6 +2053,7 @@ function TabelleAufgabe({ runde, aufgabe, stufe }) {
   const [st, setSt] = useState({});
   const [hinweise, setHinweise] = useState([]);
   const [versuch, setVersuch] = useState(0);          // neu zählen → falsche Felder wackeln bei jedem Prüfen
+  const [optionen] = useState(() => (BASIS ? Object.fromEntries(felder.map(f => [f, f === 'p2' ? formOptionen(v, 'p2', 0) : f.startsWith('hv') ? formOptionen(v, 'hv', +f.slice(2)) : formOptionen(v, 'praeteritum', +f.slice(3))])) : {}));
   const gewertet = useRef(false);
   const pruefe = () => {
     if (runde.geloest) return;
@@ -1942,7 +2082,7 @@ function TabelleAufgabe({ runde, aufgabe, stufe }) {
   // Eingabefeld; falsche Felder wackeln (Schlüssel mit dem Prüf-Zähler startet die Animation neu)
   const feld = (f, breite, label) => (
     <span key={f + (st[f] === 'falsch' ? '-' + versuch : '')} className={`inline-block ${st[f] === 'falsch' ? 'anim-shake' : ''}`}>
-      <TippFeld wert={ein[f] || ''} status={st[f]} breite={breite} label={label} onEnter={pruefe}
+      <TippFeld wert={ein[f] || ''} status={st[f]} breite={breite} label={label} onEnter={pruefe} optionen={optionen[f]}
         setWert={x => { setEin(e => ({ ...e, [f]: x })); setSt(s => ({ ...s, [f]: s[f] === 'richtig' ? 'richtig' : '' })); }} />
     </span>
   );
@@ -1975,8 +2115,8 @@ function TabelleAufgabe({ runde, aufgabe, stufe }) {
   return (
     <div className="space-y-4">
       <p className="text-slate-200 text-lg md:text-xl text-center">
-        Schreibe alle Formen von <b className="text-cyan-300">{v.g}</b> in die Tabelle.
-        {stufe === 4 && <span className="block text-base text-slate-400 mt-2">Beim Perfekt: Schreibe zuerst die ge-Form, dann zu jeder Person „haben“ oder „sein“.</span>}
+        {BASIS ? 'Wähle' : 'Schreibe'} alle Formen von <b className="text-cyan-300">{v.g}</b> {BASIS ? 'für die Tabelle aus' : 'in die Tabelle'}.
+        {stufe === 4 && <span className="block text-base text-slate-400 mt-2">Beim Perfekt: {BASIS ? 'Wähle' : 'Schreibe'} zuerst die ge-Form, dann zu jeder Person „haben“ oder „sein“.</span>}
       </p>
       <div className={`relative rounded-2xl transition-all ${runde.geloest ? 'anim-pop shadow-[0_0_35px_rgba(163,230,53,0.55)]' : ''}`}>
         <Leuchttafel zeit={stufe === 4 ? 'vergangenheit' : 'praeteritum'} titel="Formen-Tabelle">
@@ -2005,7 +2145,7 @@ function TabelleAufgabe({ runde, aufgabe, stufe }) {
   );
 }
 function FormenTabelleSpiel({ spiel, stufe, onFinish, onTipp }) {
-  const [aufgaben] = useState(() => waehle(spiel.id, verbenFuer(stufe, v => v.art === 'u').map(v => ({ key: v.g, verb: v.g, punkte: tabellenFelder(v, stufe).length })), 5));
+  const [aufgaben] = useState(() => waehle(spiel.id, verbenFuer(stufe, v => v.art === 'u').map(v => ({ key: v.g, verb: v.g, punkte: tabellenFelder(v, stufe).length })), BM(5)));
   const runde = useRunde({ aufgaben, skill: 'unregelmaessig', onFinish, onTipp });
   return <RundenRahmen runde={runde}><TabelleAufgabe key={runde.schluessel} runde={runde} aufgabe={runde.aufgabe} stufe={stufe} /></RundenRahmen>;
 }
@@ -2168,6 +2308,7 @@ function SatzTippen({ runde, aufgabe }) {
 }
 // Aufgaben zum Tippen: kurze Sätze (Klasse 3: höchstens 2 Wörter im Satzrest), Subjekt meist ein Pronomen
 function tippAufgaben(stufe, zeit, n, schonVerben) {
+  if (BASIS) return [];   // Basis: kein Satz-Tippen (Entscheidung der Lehrkraft 21.11.2026)
   const rahmen = rahmenDerStufe(stufe).filter(r => !schonVerben.includes(r.v) && !(zeit === 'futur' && verbByGrundform[r.v].futurNurImSatz) && (stufe === 4 || (r.rest || '').split(' ').length <= 2));
   return mische(rahmen).slice(0, n).map((r, i) => {
     const moegl = (r.wer || [0, 1, 2, 3, 4, 5]).filter(p => satzErlaubt(r, p, 'praesens'));
@@ -2180,12 +2321,12 @@ function FuturSpiel({ spiel, stufe, onFinish, onTipp }) {
   const [aufgaben] = useState(() => {
     const rahmen = rahmenDerStufe(stufe);
     const zieh = () => { for (;;) { const r = zufall(rahmen), p = r.wer ? zufall(r.wer) : Math.floor(Math.random() * 6); if (satzErlaubt(r, p, 'futur')) return { r, p }; } };
-    const bauen = waehle(spiel.id, rahmen.map(r => ({ key: r.v, r })), 5).map((x, i) => {
+    const bauen = waehle(spiel.id, rahmen.map(r => ({ key: r.v, r })), BM(5)).map((x, i) => {
       const p = x.r.wer ? zufall(x.r.wer) : Math.floor(Math.random() * 6);
       return { key: x.r.v, verb: x.r.v, bauen: true, satz: baueSatz(x.r, p, 'futur', i), zeitwort: i % 2 ? zufall(['morgen', 'bald', 'am Wochenende']) : null };
     });
     const arten = FUTUR_FEHLER.filter(f => f.stufe <= stufe).map(f => f.art);
-    const urteile = mische([false, false, true, true]).map((mitFehler, i) => {
+    const urteile = mische(BASIS ? [false, true, true] : [false, false, true, true]).map((mitFehler, i) => {
       for (let k = 0; k < 30; k++) {
         const { r, p } = zieh();
         if (!mitFehler) return { key: `rf-${r.v}-${p}`, verb: r.v, text: baueSatz(r, p, 'futur', i).text };
@@ -2307,15 +2448,15 @@ function PerfektWerkstatt({ spiel, stufe, onFinish, onTipp }) {
     // Teil A: etwa halb haben, halb sein; tanzen nicht (Auftrag)
     const rahmen = rahmenDerStufe(stufe).filter(r => r.v !== 'tanzen');
     const satzZu = (r, i) => { const p = r.wer ? zufall(r.wer) : Math.floor(Math.random() * 6); return baueSatz(r, p, 'perfekt', i); };
-    const sein = waehle(spiel.id + '-s', rahmen.filter(r => verbByGrundform[r.v].hv === 'sein').map(r => ({ key: r.v, r })), 2 + (Math.random() < 0.5 ? 1 : 0));
-    const haben = waehle(spiel.id + '-h', rahmen.filter(r => verbByGrundform[r.v].hv === 'haben').map(r => ({ key: r.v, r })), 5 - sein.length);
+    const sein = waehle(spiel.id + '-s', rahmen.filter(r => verbByGrundform[r.v].hv === 'sein').map(r => ({ key: r.v, r })), BASIS ? 2 : 2 + (Math.random() < 0.5 ? 1 : 0));
+    const haben = waehle(spiel.id + '-h', rahmen.filter(r => verbByGrundform[r.v].hv === 'haben').map(r => ({ key: r.v, r })), BM(5) - sein.length);
     const teilA = mische([...sein, ...haben]).map((x, i) => ({ key: 'hv-' + x.r.v, verb: x.r.v, hilfsverb: true, satz: satzZu(x.r, i) }));
     // Teil B: Partizip bauen – erst normale Verben, Stufe 4 am Ende 2 Profi-Partizipien (ohne ge-, ge- in der Mitte)
     const normal = verbenFuer(stufe, v => !['verlieren', 'beginnen'].includes(v.g));
     const profi = VERBEN.filter(v => v.nur === 'perfekt' || ['verlieren', 'beginnen'].includes(v.g));
     const teilB = [
-      ...waehle(spiel.id + '-p', normal.map(v => ({ key: v.g, verb: v.g })), stufe === 4 ? 3 : 5),
-      ...(stufe === 4 ? mische(profi).slice(0, 2).map(v => ({ key: v.g, verb: v.g })) : []),
+      ...waehle(spiel.id + '-p', normal.map(v => ({ key: v.g, verb: v.g })), BASIS ? 3 : stufe === 4 ? 3 : 5),
+      ...(stufe === 4 && PROFI_AN ? mische(profi).slice(0, 2).map(v => ({ key: v.g, verb: v.g })) : []),
     ];
     return [...nichtHintereinander(teilA), ...teilB];
   });
@@ -2329,7 +2470,7 @@ function PerfektWerkstatt({ spiel, stufe, onFinish, onTipp }) {
 // ==========================================
 function SaetzeBauenPerfekt({ spiel, stufe, onFinish, onTipp }) {
   const [aufgaben] = useState(() => {
-    const bauen = waehle(spiel.id, rahmenDerStufe(stufe).map(r => ({ key: r.v, r })), 7).map((x, i) => {
+    const bauen = waehle(spiel.id, rahmenDerStufe(stufe).map(r => ({ key: r.v, r })), BM(7)).map((x, i) => {
       const p = x.r.wer ? zufall(x.r.wer) : Math.floor(Math.random() * 6);
       return { key: x.r.v, verb: x.r.v, satz: baueSatz(x.r, p, 'perfekt', i), zeitwort: i % 2 ? zufall(['gestern', 'am Wochenende', 'letzte Woche']) : null };
     });
@@ -2342,7 +2483,7 @@ function SaetzeBauenPerfekt({ spiel, stufe, onFinish, onTipp }) {
 
 // Welche Komponente zu welchem Spiel gehört (alle 14 Spiele seit Etappe 1c)
 const SPIEL_KOMPONENTE = {
-  endungJetzt: EndungsMaschine, tore: ZeitRegen, zwillinge: FindeUnterschied, teWerkstatt: TeWerkstatt, seinHaben: SeinHaben,
+  endungJetzt: EndungsMaschine, tore: BASIS ? ZeitSortierer : ZeitRegen, zwillinge: FindeUnterschied, teWerkstatt: TeWerkstatt, seinHaben: SeinHaben,
   woerterbuch: WoerterbuchForscher, familien: VerbFamilien, treppe: FormenTabelleSpiel, textmaschine: TextZeitmaschine,
   futur: FuturSpiel, detektiv: ToreSpiel, zeitchaos: ZeitChaos, perfektWerkstatt: PerfektWerkstatt, klammerPerfekt: SaetzeBauenPerfekt,
 };
@@ -3849,7 +3990,7 @@ export default function App() {
 
   return (
     <SkillContext.Provider value={skillContext}>
-      <style>{sheetStyles}</style>
+      <style>{sheetStyles + BASIS_STIL}</style>
       {blaetter && <BlattStudio stufe={stufe} onClose={() => setBlaetter(false)} />}
       {/* Erstes Antippen weckt das Tonsystem (iPad); beim Drucken der Arbeitsblätter ist die App ausgeblendet */}
       <div onPointerDown={tonWecken} className={`text-slate-100 ${blaetter ? 'no-print' : ''}`}>

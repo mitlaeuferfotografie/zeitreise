@@ -122,6 +122,17 @@ Arbeitsblatt-Generator zum Ausdrucken (A4 hoch, Druck über den Browser). Zugang
 
 Jedes Übungsblatt beginnt mit einem gelösten Beispiel (gestrichelter Rahmen, Stern). Lösungen stehen in Violett. Wo geschrieben wird: Klasse 3 Zebra-Lineatur ohne Häuschen, Klasse 4 einfache Linien. Alle Aufgaben kommen aus denselben Datenlisten wie die Spiele.
 
+## Basis-Version
+
+Leichtere Fassung für Kinder, denen das Lesen und Schreiben schwerfällt: **https://mitlaeuferfotografie.github.io/zeitreise/basis/** (Klasse 3: `…/basis/?stufe=3`). Gleiche Lernziele, weniger Lese- und Schreiblast. Ein Quelltext, Schalter `BASIS`; der Zeitreise-Code passt in beide Versionen.
+
+- Etwa 2/3 der Aufgaben, Texte mit 3–4 Verben, keine Profi-Aufgaben, im Zeitform-Detektiv keine Fallen.
+- Statt Tippen eine Auswahl aus 3 Formen (richtige Form und typische Fehler wie „gehte“); die Schreibweise bleibt Teil der Aufgabe. Kein Satz-Tippen.
+- Zeit-Regen als ruhige Fassung: 20 Verbformen, kein Fallen, keine Zeit, keine Combo.
+- Vorlesen mit der Gerätestimme: Aufgabe (ohne die gesuchte Form), Rückmeldungen, Merksätze und Reise-Hilfe.
+- Größere Schrift, Tipp schon nach 2 Fehlern. Sterne: fehlerfrei 10, sonst aufgerundet, höchstens 9 (1 Fehler reicht noch zum Freischalten).
+- Der Arbeitsblatt-Generator ist derselbe wie in der normalen Version.
+
 ## Lokal bauen und testen
 
 Git Bash im Repo-Ordner:
@@ -129,8 +140,9 @@ Git Bash im Repo-Ordner:
 bash werkzeuge/lokal_bauen.sh
 node werkzeuge/server.mjs
 ```
-Dann http://localhost:5173/ öffnen. Weitere Prüf-Werkzeuge (Formenliste, Aufgabenliste mit automatischer Prüfung, Testspieler) beschreibt `werkzeuge/README.md`.
+Dann http://localhost:5173/ (normal) und http://localhost:5173/basis/ (Basis) öffnen. Weitere Prüf-Werkzeuge (Formenliste, Aufgabenliste mit automatischer Prüfung, Testspieler) beschreibt `werkzeuge/README.md`.
 
 ## Geplant
 
-- **Basis-Version** unter `…/zeitreise/basis/` mit Vorlesen, weniger Aufgaben und ohne Profi-Aufgaben (Etappe 3). Vorlesen gibt es nur dort.
+- Eigene Vorlesestimme („Thorsten“) für die Basis-Version statt der Gerätestimme.
+- Entlastete Arbeitsblätter für die Basis-Version (größere Schrift, weniger Aufgaben, Ankreuzen statt Schreiben).
