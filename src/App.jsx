@@ -28,13 +28,13 @@ import React, { createContext, useContext, useEffect, useLayoutEffect, useMemo, 
 import {
   ArrowRight, Award, BookA, BookOpen, Blocks, CircleHelp, Cog, Copy, DoorOpen, Gauge,
   Hammer, Hourglass, House, Key, Lock, Play, Puzzle, RotateCcw, Rocket, ScanEye, ScrollText, Search, Settings,
-  SlidersHorizontal, Sparkles, Star, Trophy, Zap, Flame, CloudRain, Keyboard, Table2, TableProperties, Target, Volume2, Wrench, Shuffle, Users,
+  Printer, SlidersHorizontal, Sparkles, Star, X, Trophy, Zap, Flame, CloudRain, Keyboard, Table2, TableProperties, Target, Volume2, Wrench, Shuffle, Users,
 } from 'lucide-react';
 import qrcode from 'qrcode-generator';
 import { createPortal } from 'react-dom';
 import { SAETZE } from './saetze';
 import {
-  PERSONEN, VERBEN, FAMILIEN, verbByGrundform, praesens, praeteritum, perfekt, partizip, wortstamm, besonderheit, formRichtig, schwerePraeteritumForm,
+  PERSONEN, VERBEN, FAMILIEN, verbByGrundform, praesens, praeteritum, perfekt, futur, partizip, wortstamm, besonderheit, formRichtig, schwerePraeteritumForm,
 } from './verben';
 import {
   rahmenDerStufe, baueSatz, satzErlaubt, textTeile, texteDerStufe, SEIN_HABEN, DETEKTIV_FALLEN, FUTUR_FEHLER, futurFehlersatz,
@@ -2619,7 +2619,7 @@ function AdminAnmeldung({ onLogin, onClose, onImpressum }) {
   );
 }
 
-function LehrerBereich({ onClose, einst, setEinst, progress, setProgress, setSkillLog, onKoennen, onSchieberegler, onImpressum }) {
+function LehrerBereich({ onClose, einst, setEinst, progress, setProgress, setSkillLog, onKoennen, onSchieberegler, onImpressum, onBlaetter }) {
   const [loeschen, setLoeschen] = useState(false);
   const [kopiert, setKopiert] = useState(false);
   const link = settingsLink(einst);
@@ -2664,6 +2664,7 @@ function LehrerBereich({ onClose, einst, setEinst, progress, setProgress, setSki
           : <Knopf onClick={() => { setProgress({}); setSkillLog({}); onClose(); }} cls="bg-red-800 hover:bg-red-700 text-white">Wirklich löschen? Noch einmal tippen.</Knopf>}
         <Knopf onClick={onKoennen}>„Das kann ich schon“ ansehen</Knopf>
         <Knopf onClick={onSchieberegler}>Erkunde die Zeiten</Knopf>
+        <Knopf onClick={onBlaetter}>Arbeitsblätter</Knopf>
         <Knopf onClick={onImpressum}>Impressum &amp; Datenschutz</Knopf>
       </div>
       <p className="text-xs text-slate-500 mt-4">„Alles freischalten“ setzt alle Spiele der Stufe auf 10 Sterne, „Grundlagen abschließen“ nur die freien Spiele. Version: {BASIS ? 'Basis' : 'normal'} · Stufe {einst.stufe}</p>
@@ -2977,10 +2978,504 @@ function Zeitsprung({ sprung, onFertig }) {
 }
 
 // ==========================================
+// ARBEITSBLÄTTER (Etappe 2, Teil 1 – 21.11.2026; A4 hoch, Druck über den Browser, auch in Schwarz-Weiß)
+// ==========================================
+// Vorbild Technik: Redezeichen-Helden (BlattStudio) und „Erkennen und Zerlegen“. Zugang: blasses Drucker-Symbol oben
+// neben dem Zahnrad (ohne Passwort) und Knopf „Arbeitsblätter“ im Lehrer-Bereich.
+// Alle Aufgaben kommen aus denselben Datenlisten wie die Spiele (VERBEN, SATZRAHMEN/baueSatz, TEXTE, FAMILIEN) –
+// nie fertige Sätze abtippen. Zufall nur über neuerZufall(Nummer …), nicht Math.random: dieselbe Nummer erzeugt
+// dasselbe Blatt wieder (steht in der Fußzeile, auch auf der Lösung).
+// Jedes Blatt: Name/Datum, Symbol, Titel, kleiner Aufgabentext für die Lehrkraft, erste Aufgabe als gelöstes Beispiel
+// (gestrichelt, Stern), Lösungsblatt in Violett. Lineatur, wo geschrieben wird: Klasse 3 Zebra-Lineatur ohne Häuschen,
+// Klasse 4 einfache Linien. Zeitformen in den App-Farben, aber immer auch mit Namen beschriftet (Schwarz-Weiß).
+// Fachwörter wie in der App: „ge-Form“ statt „Partizip“.
+
+const sheetStyles = `
+  .sheet-page { width: 210mm; height: 297mm; padding: 11mm 14mm 0; background: #fff; color: #111827; box-sizing: border-box; position: relative; overflow: hidden; font-family: ui-sans-serif, system-ui, 'Segoe UI', Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet-page * { box-sizing: border-box; }
+  @media print {
+    @page { size: A4 portrait; margin: 0; }
+    html, body { background: #fff !important; }
+    .no-print { display: none !important; }
+    .sheet-studio { position: static !important; inset: auto !important; overflow: visible !important; background: #fff !important; padding: 0 !important; display: block !important; }
+    .sheet-scroll { overflow: visible !important; padding: 0 !important; background: #fff !important; }
+    .sheet-huelle { width: auto !important; height: auto !important; margin: 0 !important; }
+    .sheet-scale { transform: none !important; margin: 0 !important; width: auto !important; height: auto !important; gap: 0 !important; }
+    .sheet-scale > div { box-shadow: none !important; }
+    .sheet-page { box-shadow: none !important; margin: 0 !important; break-after: page; page-break-after: always; }
+    .sheet-scale > div:last-child .sheet-page { break-after: auto; page-break-after: auto; }
+  }
+`;
+
+// ---------- Farben und Maße ----------
+const BF = { ink: '#111827', grau: '#6b7280', hell: '#d1d5db', sol: '#7c3aed', bsp: '#374151', zebra: '#e5e7eb' };
+const ZF = {   // Zeitfarben wie in der App (Tafelmaterial der Schule), für Papier
+  praesens:    { rand: '#e11d48', flaeche: '#ffe4e6', text: '#9f1239' },
+  praeteritum: { rand: '#d97706', flaeche: '#fef3c7', text: '#92400e' },
+  perfekt:     { rand: '#65a30d', flaeche: '#ecfccb', text: '#3f6212' },
+  futur:       { rand: '#0284c7', flaeche: '#e0f2fe', text: '#075985' },
+};
+const bm = (v) => `${Math.round(v * 100) / 100}mm`;
+
+// ---------- Zufall mit Startwert ----------
+function zufallsGenerator(text) {
+  let h = 2166136261;
+  for (const ch of String(text)) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }
+  let a = h >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function neuerZufall(text) {
+  const rnd = zufallsGenerator(text);
+  const mix = (arr) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+  return { rnd, mix, pick };
+}
+const neueNummer = () => String(1000 + Math.floor(Math.random() * 9000));
+
+// ---------- Bausteine ----------
+function SternIcon({ size = 5.4 }) {
+  return <svg viewBox="0 0 24 24" style={{ width: bm(size), height: bm(size), display: 'block', flexShrink: 0 }}><path d="M12 2.5l2.9 6.2 6.6.7-5 4.5 1.4 6.6L12 17.2 6.1 20.5l1.4-6.6-5-4.5 6.6-.7z" fill="#facc15" stroke="#a16207" strokeWidth="1.4" strokeLinejoin="round" /></svg>;
+}
+function NrKreis({ n, bsp }) {
+  if (bsp) return <span style={{ width: '6mm', flexShrink: 0, display: 'flex', justifyContent: 'center' }}><SternIcon /></span>;
+  return <span style={{ width: '6mm', height: '6mm', borderRadius: '50%', flexShrink: 0, border: `0.35mm solid ${BF.ink}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '3.2mm', fontWeight: 700 }}>{n}</span>;
+}
+function BspRahmen({ children, stil = {} }) {
+  return (
+    <div style={{ border: '0.45mm dashed #6b7280', borderRadius: '2.5mm', padding: '1.6mm 2.5mm', position: 'relative', ...stil }}>
+      <span style={{ position: 'absolute', top: '-2mm', left: '9mm', background: '#fff', padding: '0 1mm', fontSize: '2.6mm', fontWeight: 700, color: BF.grau, lineHeight: 1.2 }}>Beispiel</span>
+      {children}
+    </div>
+  );
+}
+function Ankreuz({ an, farbe = BF.sol, label, zeit }) {
+  const Z = zeit && ZF[zeit];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '1.2mm', fontSize: '3.3mm', fontWeight: 700, whiteSpace: 'nowrap', color: Z ? Z.text : BF.ink }}>
+      <span style={{ width: '4.6mm', height: '4.6mm', border: `0.4mm solid ${Z ? Z.rand : BF.ink}`, background: Z ? Z.flaeche : '#fff', borderRadius: '1mm', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+        {an && <svg viewBox="0 0 10 10" style={{ width: '90%', height: '90%' }}><path d="M1.5 1.5 L8.5 8.5 M8.5 1.5 L1.5 8.5" stroke={farbe} strokeWidth="1.8" strokeLinecap="round" /></svg>}
+      </span>
+      {label}
+    </span>
+  );
+}
+// Schreibzeile: Klasse 3 Zebra-Lineatur ohne Häuschen (Oberband, graues Mittelband, Unterband), Klasse 4 einfache Linie.
+// text = Lösung oder Beispiel (steht auf der Grundlinie)
+function Schreibzeile({ klasse, text = null, farbe = BF.sol, breite = null, band = 3.4, groesse = null, wachsen = true, einzug = 1.5 }) {
+  const fs = groesse || (klasse === 3 ? band * 1.85 : 5);
+  const stil = { position: 'relative', flex: breite || !wachsen ? 'none' : 1, width: breite ? bm(breite) : wachsen ? undefined : '100%', minWidth: 0 };
+  if (klasse === 3) {
+    return (
+      <span style={{ ...stil, display: 'inline-block', height: bm(band * 3), verticalAlign: 'bottom' }}>
+        <span style={{ position: 'absolute', left: 0, right: 0, top: bm(band), height: bm(band), background: BF.zebra }} />
+        {[0, 1, 2, 3].map(i => <span key={i} style={{ position: 'absolute', left: 0, right: 0, top: bm(i * band), borderTop: `${i === 2 ? 0.35 : 0.2}mm solid ${i === 2 ? '#4b5563' : '#9ca3af'}` }} />)}
+        {text && <span style={{ position: 'absolute', left: bm(einzug), bottom: bm(band - fs * 0.2), fontSize: bm(fs), lineHeight: 1, fontWeight: 600, color: farbe, whiteSpace: 'nowrap' }}>{text}</span>}
+      </span>
+    );
+  }
+  return (
+    <span style={{ ...stil, display: 'inline-block', height: '9mm', borderBottom: '0.3mm solid #4b5563', verticalAlign: 'bottom' }}>
+      {text && <span style={{ position: 'absolute', left: bm(einzug), bottom: '0.9mm', fontSize: bm(fs), lineHeight: 1, fontWeight: 600, color: farbe, whiteSpace: 'nowrap' }}>{text}</span>}
+    </span>
+  );
+}
+// Zeitform-Etikett (Farbe + Name, auch in Schwarz-Weiß lesbar)
+function ZeitEtikett({ zeit, klein = false }) {
+  const Z = ZF[zeit];
+  return <span style={{ display: 'inline-block', border: `0.4mm solid ${Z.rand}`, background: Z.flaeche, color: Z.text, borderRadius: '1.2mm', padding: klein ? '0 1.2mm' : '0.4mm 1.8mm', fontSize: klein ? '2.7mm' : '3.4mm', fontWeight: 800, whiteSpace: 'nowrap' }}>{ZEITEN[zeit].name}</span>;
+}
+function BlattKopf({ Icon, titel, text, loesung }) {
+  return (
+    <div style={{ marginBottom: '5mm' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8mm', fontSize: '3.6mm', marginBottom: '3mm' }}>
+        <span style={{ display: 'flex', alignItems: 'flex-end', gap: '1.5mm' }}>Name:<span style={{ display: 'inline-block', width: '62mm', borderBottom: `0.3mm solid ${BF.ink}` }} /></span>
+        <span style={{ display: 'flex', alignItems: 'flex-end', gap: '1.5mm' }}>Datum:<span style={{ display: 'inline-block', width: '30mm', borderBottom: `0.3mm solid ${BF.ink}` }} /></span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4mm' }}>
+        <span style={{ width: '17mm', height: '17mm', borderRadius: '50%', border: `0.7mm solid ${BF.ink}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon style={{ width: '10mm', height: '10mm' }} strokeWidth={1.8} /></span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '8.5mm', fontWeight: 800, lineHeight: 1.05 }}>{titel}{loesung && <span style={{ color: BF.sol }}> – Lösung</span>}</div>
+          <div style={{ fontSize: '3.4mm', color: '#4b5563', marginTop: '1mm' }}>{text}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function BlattSeite({ fuss, nr, seite, children }) {
+  return (
+    <div className="sheet-page">
+      <div className="sheet-inhalt" style={{ height: '274mm', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>{children}</div>
+      <div style={{ position: 'absolute', left: '14mm', right: '14mm', bottom: '6mm', borderTop: `0.3mm solid ${BF.hell}`, paddingTop: '1.4mm', display: 'flex', justifyContent: 'space-between', fontSize: '2.8mm', color: BF.grau }}>
+        <span>Zeitreise – Zeitformen der Verben · {fuss}</span><span>Nr. {nr}</span><span>{seite}</span>
+      </div>
+    </div>
+  );
+}
+// Stamm schwarz unterstrichen (wie in der App), Endung je nach Zustand
+// Person mit Hinweis wie in der App: „sie (viele)“
+const PersonText = ({ p }) => p === 5 ? <>sie <span style={{ fontSize: '0.6em', color: BF.grau, fontWeight: 500 }}>(viele)</span></> : PERSONEN[p];
+const StammUnter = ({ children }) => <span style={{ borderBottom: `0.5mm solid ${BF.ink}`, paddingBottom: '0.3mm' }}>{children}</span>;
+
+// ---------- Blatttypen ----------
+const BLATT_TYPEN = {
+  formen:    { titel: 'Formen-Tabelle', Icon: TableProperties, text: (k) => `Schreibe die Formen mit „ich“ in die Tabelle${k === 4 ? ' (Präsens, Präteritum, Perfekt und Futur)' : ' (Präsens und Präteritum)'}. Wie in der Prüfung.` },
+  endungen:  { titel: 'Endungen einsetzen', Icon: Cog, text: () => 'Setze die passende Endung ein und kreise sie ein. Der Wortstamm ist unterstrichen. Über jedem Wort steht die Zeitform.', option: 'endZeit' },
+  personal:  { titel: 'Personalformen', Icon: Users, text: () => 'Schreibe das Verb für alle Personen im Präsens und im Präteritum auf. Graue Formen stehen schon da.' },
+  luecken:   { titel: 'Lückentext', Icon: ScrollText, text: () => 'Setze das Verb aus der Klammer in der angegebenen Zeitform ein.', option: 'lueckZeit' },
+  bestimmen: { titel: 'Zeitform bestimmen', Icon: Search, text: (k) => `Unterstreiche das Verb${k === 4 ? ' (beide Teile)' : ''} und kreuze die Zeitform an.` },
+  familien:  { titel: 'Verb-Familien', Icon: House, text: () => 'Schreibe jedes Verbpaar in das Haus seiner Familie. Streiche es im Kasten durch.' },
+};
+const BLATT_GRUPPEN = [
+  { titel: 'Formen bilden', typen: ['formen', 'endungen', 'personal'] },
+  { titel: 'Texte und Sätze', typen: ['luecken', 'bestimmen'] },
+  { titel: 'Unregelmäßige Verben', typen: ['familien'] },
+];
+const BLATT_OPTIONEN = {
+  endZeit: { label: 'Zeitform', werte: () => [['praesens', 'Präsens'], ['praeteritum', 'Präteritum'], ['gemischt', 'gemischt']] },
+  lueckZeit: { label: 'Zeitform der Lücken', werte: (k) => [['praesens', 'Präsens'], ['praeteritum', 'Präteritum'], ...(k === 4 ? [['perfekt', 'Perfekt'], ['futur', 'Futur']] : [])] },
+};
+
+// 1. Formen-Tabelle wie in der Prüfung (1. Person Singular)
+function FormenBlatt({ z, klasse, sol }) {
+  const zeiten = klasse === 4 ? ['praesens', 'praeteritum', 'perfekt', 'futur'] : ['praesens', 'praeteritum'];
+  const n = klasse === 4 ? 9 : 10;
+  const unreg = z.mix(verbenFuer(klasse, v => v.art === 'u' && v.g !== 'werden'));
+  const reg = z.mix(verbenFuer(klasse, v => v.art === 'r'));
+  const verben = z.mix([...unreg.slice(0, Math.ceil(n * 0.6)), ...reg.slice(0, n - Math.ceil(n * 0.6))]);
+  const form = (v, zeit) => zeit === 'praesens' ? praesens(v)[0].text : zeit === 'praeteritum' ? praeteritum(v)[0].text : zeit === 'perfekt' ? perfekt(v)[0].text : futur(v)[0].text;
+  const spalteB = klasse === 4 ? 38 : 72;
+  const zelle = { borderRight: `0.3mm solid ${BF.hell}`, padding: '1.5mm 2mm', display: 'flex', alignItems: 'flex-end', gap: '1.5mm' };
+  return (
+    <div style={{ border: `0.4mm solid ${BF.ink}`, borderRadius: '2mm', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', marginBottom: '4mm' }}>
+      <div style={{ display: 'flex', borderBottom: `0.4mm solid ${BF.ink}`, background: '#f3f4f6' }}>
+        <div style={{ ...zelle, width: '30mm', fontWeight: 800, fontSize: '3.6mm', alignItems: 'center' }}>Grundform</div>
+        {zeiten.map(t => <div key={t} style={{ ...zelle, width: bm(spalteB), alignItems: 'center', background: ZF[t].flaeche, borderBottom: `1mm solid ${ZF[t].rand}` }}><span style={{ fontWeight: 800, fontSize: '3.6mm', color: ZF[t].text }}>{ZEITEN[t].name}</span></div>)}
+      </div>
+      {verben.map((v, i) => {
+        const bsp = i === 0, zeig = sol || bsp, farbe = bsp ? BF.bsp : BF.sol;
+        return (
+          <div key={v.g} style={{ flex: 1, display: 'flex', borderBottom: i < verben.length - 1 ? `0.3mm solid ${BF.hell}` : 'none', ...(bsp ? { outline: '0.45mm dashed #6b7280', outlineOffset: '-1.2mm' } : {}) }}>
+            <div style={{ ...zelle, width: '30mm', fontSize: '4.4mm', fontWeight: 700, alignItems: 'center', gap: '2mm' }}>{bsp && <SternIcon size={4.4} />}{v.g}</div>
+            {zeiten.map(t => {
+              const f = form(v, t), [hv, ...rest] = f.split(' ');
+              return (
+                <div key={t} style={{ ...zelle, width: bm(spalteB), fontSize: '4mm', ...(klasse === 4 ? { flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-end', gap: '0.5mm' } : {}) }}>
+                  {/* Klasse 4: „ich“ über der Linie, damit „bin geschwommen“ Platz hat */}
+                  <span style={{ fontWeight: 600, paddingBottom: klasse === 3 ? '3.3mm' : 0, fontSize: klasse === 4 ? '3.4mm' : undefined }}>ich</span>
+                  <Schreibzeile klasse={klasse} text={zeig ? (t === 'perfekt' || t === 'futur' ? `${hv} ${rest.join(' ')}` : f) : null} farbe={farbe} band={3.2} groesse={klasse === 4 ? 3.8 : null} wachsen={klasse === 3} einzug={klasse === 4 ? 0.3 : 1.5} />
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// 2. Endungen einsetzen (regelmäßige Verben)
+function EndungenBlatt({ z, klasse, sol, option }) {
+  const verben = z.mix(verbenFuer(klasse, v => v.art === 'r' && (klasse === 4 || !besonderheit(v)) && !(klasse === 3 && v.g === 'putzen')));
+  const n = 16;
+  const items = Array.from({ length: n }, (_, i) => {
+    const v = verben[i % verben.length], p = Math.floor(z.rnd() * 6);
+    const zeit = option === 'gemischt' ? (z.rnd() < 0.5 ? 'praesens' : 'praeteritum') : option;
+    const f = (zeit === 'praesens' ? praesens(v) : praeteritum(v))[p];
+    return { v, p, zeit, f };
+  });
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: '8mm', rowGap: '5mm' }}>
+      {items.map((it, i) => {
+        const bsp = i === 0, zeig = sol || bsp, farbe = bsp ? BF.bsp : BF.sol;
+        const inhalt = (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2.5mm' }}>
+            <NrKreis n={i} bsp={bsp} />
+            <div>
+              <div style={{ marginBottom: '1mm' }}><ZeitEtikett zeit={it.zeit} klein /> <span style={{ fontSize: '2.8mm', color: BF.grau }}>({it.v.g})</span></div>
+              <div style={{ fontSize: '6mm', fontWeight: 600, display: 'flex', alignItems: 'flex-end', gap: '2mm' }}>
+                <span><PersonText p={it.p} /></span>
+                <span><StammUnter>{it.f.stamm}</StammUnter></span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '14mm', height: '9mm', border: zeig ? `0.5mm solid ${farbe}` : '0.4mm dashed #6b7280', borderRadius: zeig ? '50%' : '1.5mm', color: farbe, padding: '0 1.5mm', marginLeft: '-1.5mm' }}>{zeig ? it.f.endung : ''}</span>
+              </div>
+            </div>
+          </div>
+        );
+        return <div key={i}>{bsp ? <BspRahmen>{inhalt}</BspRahmen> : inhalt}</div>;
+      })}
+    </div>
+  );
+}
+
+// 3. Personalformen-Tabelle (Präsens und Präteritum) – zwei Verben
+function PersonalBlatt({ z, klasse, sol }) {
+  const reg = z.pick(verbenFuer(klasse, v => v.art === 'r' && (klasse === 4 || !besonderheit(v))));
+  const unreg = z.pick(verbenFuer(klasse, v => v.art === 'u' && v.g !== 'werden'));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '7mm' }}>
+      {[reg, unreg].map((v, k) => (
+        <div key={v.g} style={{ border: `0.4mm solid ${BF.ink}`, borderRadius: '2mm', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', borderBottom: `0.4mm solid ${BF.ink}`, background: '#f3f4f6' }}>
+            <div style={{ width: '34mm', padding: '2mm', fontWeight: 800, fontSize: '5mm' }}>{v.g}</div>
+            {['praesens', 'praeteritum'].map(t => <div key={t} style={{ flex: 1, padding: '2mm', background: ZF[t].flaeche, borderLeft: `0.3mm solid ${BF.hell}`, borderBottom: `1mm solid ${ZF[t].rand}`, color: ZF[t].text, fontWeight: 800, fontSize: '3.8mm' }}>{ZEITEN[t].name}</div>)}
+          </div>
+          {PERSONEN.map((pr, p) => {
+            const bsp = k === 0 && p === 0;
+            return (
+              <div key={pr} style={{ display: 'flex', borderTop: p ? `0.3mm solid ${BF.hell}` : 'none', ...(bsp ? { outline: '0.45mm dashed #6b7280', outlineOffset: '-1mm' } : {}) }}>
+                <div style={{ width: '34mm', padding: '1.5mm 2mm', fontSize: '4.2mm', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '2mm' }}>{bsp && <SternIcon size={4.4} />}<PersonText p={p} /></div>
+                {['praesens', 'praeteritum'].map(t => {
+                  const f = (t === 'praesens' ? praesens(v) : praeteritum(v))[p].text;
+                  const schon = t === 'praeteritum' && schwerePraeteritumForm(v, p);   // wie in der App: steht grau schon da
+                  return (
+                    <div key={t} style={{ flex: 1, padding: '1.5mm 3mm', borderLeft: `0.3mm solid ${BF.hell}`, display: 'flex' }}>
+                      <Schreibzeile klasse={klasse} text={schon || sol || bsp ? f : null} farbe={schon ? '#9ca3af' : bsp ? BF.bsp : BF.sol} />
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// 4. Lückentext: Text mit Lücken und Grundform in Klammern; Perfekt/Futur: Hilfsverb an der Verbstelle, zweiter Teil am Satzende
+function lueckenWoerter(textObj, zeit) {
+  const woerter = [];
+  let offen = null, vi = 0;
+  for (const t of textTeile(textObj, 'praesens')) {
+    if (t.v) {
+      const v = verbByGrundform[t.v];
+      if (zeit === 'perfekt' || zeit === 'futur') {
+        const f = (zeit === 'perfekt' ? perfekt(v) : futur(v))[t.p];
+        woerter.push({ luecke: f.hilfsverb, g: v.g, vi });
+        offen = { luecke: f.zweites, ende: true, vi };
+      } else woerter.push({ luecke: (zeit === 'praeteritum' ? praeteritum(v) : praesens(v))[t.p].text, g: v.g, vi });
+      vi++;
+      continue;
+    }
+    // Text zwischen den Verben; beim Satzende den zweiten Teil einfügen
+    const teile = t.t.split(/([.!?])/);
+    teile.forEach(s => {
+      if (/^[.!?]$/.test(s)) { if (offen) { woerter.push(offen); offen = null; } woerter.push({ t: s, zeichen: true }); }
+      else if (s) woerter.push({ t: s });
+    });
+  }
+  return woerter;
+}
+function LueckenBlatt({ z, klasse, sol, option }) {
+  const zeit = option;
+  const tauglich = (x) => x.text.split(/[.!?]/).every(s => (s.match(/\{/g) || []).length <= 1);
+  const texte = z.mix(texteDerStufe(klasse).filter(x => (zeit === 'perfekt' || zeit === 'futur') ? tauglich(x) : true)).slice(0, 2);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8mm' }}>
+      <div style={{ fontSize: '3.6mm', display: 'flex', alignItems: 'center', gap: '2mm' }}>Schreibe alle Verben im <ZeitEtikett zeit={zeit} /> <span style={{ color: BF.grau }}>{ZEITEN[zeit].deutsch}</span></div>
+      {texte.map((x, k) => (
+        <div key={x.id}>
+          <div style={{ fontSize: '5mm', fontWeight: 800, marginBottom: '2mm' }}>{x.titel}</div>
+          <div style={{ fontSize: '5mm', lineHeight: klasse === 3 ? 2.6 : 2.3 }}>
+            {lueckenWoerter(x, zeit).map((w, i) => {
+              if (w.t !== undefined) return <span key={i}>{w.t}</span>;
+              const bsp = k === 0 && w.vi === 0;   // Beispiel: das erste Verb des ersten Textes (beim Perfekt/Futur beide Teile)
+              const zeig = sol || bsp;
+              return (
+                <span key={i} style={{ whiteSpace: 'nowrap' }}>
+                  {i > 0 && !w.ende ? '' : ' '}
+                  <span style={{ display: 'inline-block', minWidth: '30mm', borderBottom: `0.35mm solid ${BF.ink}`, textAlign: 'center', color: bsp ? BF.bsp : BF.sol, fontWeight: 700, lineHeight: 1.3, ...(bsp ? { outline: '0.4mm dashed #6b7280', outlineOffset: '0.8mm', borderRadius: '1mm' } : {}) }}>
+                    {bsp && <span style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '1mm' }}><SternIcon size={3.6} /></span>}{zeig ? w.luecke : ' '}
+                  </span>
+                  {w.g && <span style={{ fontSize: '3.4mm', color: BF.grau }}> ({w.g})</span>}
+                  {w.ende ? '' : ' '}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// 5. Zeitform bestimmen: Verb unterstreichen, Zeitform ankreuzen
+function BestimmenBlatt({ z, klasse, sol }) {
+  const zeiten = klasse === 4 ? ['praesens', 'praeteritum', 'perfekt', 'futur'] : ['praesens', 'praeteritum', 'futur'];
+  const rahmen = z.mix(rahmenDerStufe(klasse).filter(r => r.v !== 'werden'));
+  const folge = z.mix([...zeiten, ...zeiten, ...zeiten, ...zeiten]).slice(0, 11);
+  const saetze = folge.map((zeit, i) => {
+    const r = rahmen[i % rahmen.length];
+    const personen = (r.wer || [0, 1, 2, 3, 4, 5]).filter(p => satzErlaubt(r, p, zeit));
+    return baueSatz(r, personen[Math.floor(z.rnd() * personen.length)], zeit, Math.floor(z.rnd() * 6));
+  });
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4.2mm' }}>
+      {saetze.map((s, i) => {
+        const bsp = i === 0, zeig = sol || bsp, farbe = bsp ? BF.bsp : BF.sol;
+        const inhalt = (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '3mm' }}>
+            <NrKreis n={i} bsp={bsp} />
+            <div style={{ flex: 1, fontSize: '5mm', fontWeight: 500 }}>
+              {s.teile.map((x, k) => {
+                const verb = x.rolle === 'verb' || x.rolle === 'hv' || x.rolle === 'zweites';
+                return <React.Fragment key={k}>{k > 0 && ' '}<span style={verb && zeig ? { borderBottom: `0.7mm solid ${farbe}`, paddingBottom: '0.3mm' } : {}}>{x.t}</span></React.Fragment>;
+              })}.
+            </div>
+            <div style={{ display: 'flex', gap: '2.5mm', flexShrink: 0 }}>
+              {zeiten.map(t => <Ankreuz key={t} zeit={t} an={zeig && s.zeit === t} farbe={farbe} label={ZEITEN[t].name} />)}
+            </div>
+          </div>
+        );
+        return <div key={i}>{bsp ? <BspRahmen>{inhalt}</BspRahmen> : inhalt}</div>;
+      })}
+    </div>
+  );
+}
+
+// 6. Verb-Familien sortieren
+function FamilienBlatt({ z, klasse, sol }) {
+  const moeglich = Object.keys(FAMILIEN).filter(f => f !== 'misch' && f !== 'einzel' && verbenFuer(klasse, v => v.fam === f).length >= 3);
+  const familien = z.mix(moeglich).slice(0, klasse === 4 ? 4 : 3);
+  const proHaus = 3;
+  const paare = familien.flatMap(f => z.mix(verbenFuer(klasse, v => v.fam === f)).slice(0, proHaus).map(v => ({ v, f })));
+  const kasten = z.mix(paare);
+  const bsp = kasten[0];
+  const paarText = (v) => `${v.g} – ${praeteritum(v)[0].text}`;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6mm' }}>
+      <div style={{ border: `0.45mm solid ${BF.ink}`, borderRadius: '3mm', padding: '3mm 4mm', display: 'flex', flexWrap: 'wrap', gap: '2.5mm 6mm', fontSize: '4.6mm', fontWeight: 600 }}>
+        {kasten.map(({ v }) => <span key={v.g} style={{ textDecoration: (sol || v === bsp.v) ? `line-through ${v === bsp.v ? BF.bsp : BF.sol}` : 'none', textDecorationThickness: '0.5mm' }}>{paarText(v)}</span>)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: familien.length === 4 ? '1fr 1fr' : '1fr', gap: '5mm' }}>
+        {familien.map(f => {
+          const drin = paare.filter(p => p.f === f);
+          return (
+            <div key={f} style={{ border: `0.5mm solid ${ZF.praeteritum.rand}`, borderRadius: '3mm', padding: '2.5mm 4mm 3mm', position: 'relative' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '2mm', fontWeight: 800, fontSize: '4.4mm', color: ZF.praeteritum.text, marginBottom: '1.5mm' }}>
+                <House style={{ width: '6mm', height: '6mm' }} /> Familie {FAMILIEN[f].titel}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: klasse === 3 ? '4.5mm' : '2.5mm' }}>
+                {drin.map((p, i) => {
+                  const istBsp = p.v === bsp.v;
+                  return <div key={i} style={{ display: 'flex', alignItems: 'flex-end', gap: '2mm' }}>{istBsp && <SternIcon size={4.4} />}<Schreibzeile klasse={klasse} text={sol || istBsp ? paarText(p.v) : null} farbe={istBsp ? BF.bsp : BF.sol} /></div>;
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const BLATT_INHALT = { formen: FormenBlatt, endungen: EndungenBlatt, personal: PersonalBlatt, luecken: LueckenBlatt, bestimmen: BestimmenBlatt, familien: FamilienBlatt };
+
+// Seiten eines Blattes: Aufgabe + (auf Wunsch) Lösung, beide aus demselben Startwert
+function blattSeiten(typ, nummer, klasse, option, loesung) {
+  const T = BLATT_TYPEN[typ], Inhalt = BLATT_INHALT[typ];
+  const seite = (sol) => {
+    const z = neuerZufall(`${typ}|${klasse}|${option || ''}|${nummer}`);
+    return (
+      <BlattSeite key={sol ? 'l' : 'a'} fuss={`${T.titel} · Klasse ${klasse}${option && option !== 'gemischt' && BLATT_OPTIONEN[T.option] ? ' · ' + (BLATT_OPTIONEN[T.option].werte(klasse).find(w => w[0] === option) || [, option])[1] : ''}`} nr={nummer} seite={sol ? 'Lösung' : 'Aufgaben'}>
+        <BlattKopf Icon={T.Icon} titel={T.titel} text={T.text(klasse)} loesung={sol} />
+        <Inhalt z={z} klasse={klasse} sol={sol} option={option} />
+      </BlattSeite>
+    );
+  };
+  return loesung ? [seite(false), seite(true)] : [seite(false)];
+}
+
+function BlattStudio({ stufe, onClose }) {
+  const [typ, setTyp] = useState('formen');
+  const [klasse, setKlasse] = useState(stufe);
+  const [loesung, setLoesung] = useState(true);
+  const [optionen, setOptionen] = useState({ endZeit: 'gemischt', lueckZeit: 'praeteritum' });
+  const [nummer, setNummer] = useState(neueNummer);
+  const [eingabe, setEingabe] = useState(nummer);
+  const T = BLATT_TYPEN[typ];
+  const optDef = T.option ? BLATT_OPTIONEN[T.option] : null;
+  const werte = optDef ? optDef.werte(klasse) : [];
+  const option = optDef ? (werte.some(w => w[0] === optionen[T.option]) ? optionen[T.option] : werte[0][0]) : null;
+  const seiten = useMemo(() => blattSeiten(typ, nummer, klasse, option, loesung), [typ, nummer, klasse, option, loesung]);
+  const scrollRef = useRef(null), scaleRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  const [ueberlauf, setUeberlauf] = useState([]);
+  useEffect(() => {
+    const fit = () => { const w = scrollRef.current ? scrollRef.current.clientWidth - 32 : 800; setScale(Math.min(1, w / 794)); };
+    fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit);
+  }, []);
+  // Läuft eine Seite über? (Schutz – sollte nie vorkommen)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!scaleRef.current) return;
+      const els = [...scaleRef.current.querySelectorAll('.sheet-inhalt')];
+      setUeberlauf(els.map((el, i) => (el.scrollHeight > el.clientHeight + 2 ? i + 1 : null)).filter(Boolean));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [seiten]);
+  const neu = () => { const n = neueNummer(); setNummer(n); setEingabe(n); };
+  const knopf = (aktiv) => `px-3 py-2 rounded-xl text-sm font-bold border-2 ${aktiv ? 'bg-cyan-400 text-cyan-950 border-cyan-300' : 'bg-slate-800 border-slate-700 hover:border-slate-500 text-slate-100'}`;
+  const klein = (aktiv) => `px-3 py-1.5 rounded-lg font-bold ${aktiv ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 hover:bg-slate-700'}`;
+  return (
+    <div className="sheet-studio fixed inset-0 z-[270] bg-slate-950/95 flex flex-col">
+      <div className="no-print bg-slate-900 border-b-2 border-cyan-400/40 p-3 md:p-4 text-slate-100 max-h-[55vh] overflow-y-auto">
+        <div className="max-w-6xl mx-auto flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <h3 className="text-xl sm:text-2xl font-black text-cyan-300 flex items-center gap-2 min-w-0"><Printer className="w-7 h-7 flex-shrink-0" /> <span className="truncate">Arbeitsblätter</span></h3>
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              <button onClick={() => window.print()} className="inline-flex items-center gap-2 bg-cyan-400 hover:bg-cyan-300 text-cyan-950 px-4 sm:px-6 py-3 rounded-2xl font-black text-lg shadow-[0_4px_0_rgba(14,116,144,1)] active:translate-y-1 active:shadow-none"><Printer className="w-6 h-6" /> Drucken</button>
+              <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 rounded-full p-2" aria-label="Schließen"><X className="w-6 h-6" /></button>
+            </div>
+          </div>
+          {BLATT_GRUPPEN.map(g => (
+            <div key={g.titel} className="flex flex-wrap items-center gap-2">
+              <span className="text-slate-400 text-sm w-full sm:w-48">{g.titel}:</span>
+              {g.typen.map(id => <button key={id} onClick={() => setTyp(id)} className={knopf(typ === id)}>{BLATT_TYPEN[id].titel}</button>)}
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <span className="flex items-center gap-2"><span className="text-slate-400">Klasse:</span>{[3, 4].map(k => <button key={k} onClick={() => setKlasse(k)} className={klein(klasse === k)}>{k}</button>)}</span>
+            {optDef && (
+              <span className="flex items-center gap-2 flex-wrap">
+                <span className="text-slate-400">{optDef.label}:</span>
+                {werte.map(([w, l]) => <button key={w} onClick={() => setOptionen(o => ({ ...o, [T.option]: w }))} className={klein(option === w)}>{l}</button>)}
+              </span>
+            )}
+            <label className="flex items-center gap-2"><input type="checkbox" checked={loesung} onChange={ev => setLoesung(ev.target.checked)} /> Lösungsblatt dazu</label>
+            <label className="flex items-center gap-2">
+              <span className="text-slate-400">Nummer:</span>
+              <input value={eingabe} inputMode="numeric" maxLength={4} aria-label="Blatt-Nummer" onChange={ev => { const v = ev.target.value.replace(/\D/g, '').slice(0, 4); setEingabe(v); if (v.length === 4) setNummer(v); }} className="w-20 bg-slate-950 border-2 border-slate-700 focus:border-cyan-500 rounded-lg px-2 py-1 text-center font-bold tracking-widest outline-none" />
+            </label>
+            <button onClick={neu} className="ml-auto inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl font-bold"><Shuffle className="w-4 h-4" /> Neue Aufgaben</button>
+          </div>
+          <p className="text-xs text-slate-400">
+            {seiten.length} Seite{seiten.length > 1 ? 'n' : ''} · Die Nummer steht unten auf jeder Seite. Gibt man sie hier ein (gleiche Klasse und Einstellung), entsteht genau dieses Blatt noch einmal. Im Druckfenster „A4“ und „Ränder: keine“ wählen. Für Farbe „Hintergrundgrafiken“ einschalten – die Blätter funktionieren auch in Schwarz-Weiß.
+            {ueberlauf.length > 0 && <span className="text-rose-300 font-bold"> Achtung: Seite {ueberlauf.join(', ')} ist zu voll – bitte „Neue Aufgaben“ drücken.</span>}
+          </p>
+        </div>
+      </div>
+      <div ref={scrollRef} className="sheet-scroll flex-1 overflow-auto p-4 bg-slate-700">
+        <div className="sheet-huelle mx-auto" style={{ width: `${794 * scale}px`, height: `${seiten.length * (297 * 3.78 + 24) * scale}px` }}>
+          <div ref={scaleRef} className="sheet-scale flex flex-col items-center gap-6" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: '210mm' }}>
+            {seiten.map(p => <div key={p.key} className="shadow-2xl">{p}</div>)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
 // APP
 // ==========================================
 // Feste Kopfleiste wie in Pronomen-Magie: links Merksätze, Mitte Reise-Hilfe/Code/Können + blasses Zahnrad, rechts Sterne
-function KopfLeiste({ stufe, progress, hudAnim, onHudEnde, onMerksaetze, onHilfe, onCode, onKoennen, onAdmin }) {
+function KopfLeiste({ stufe, progress, hudAnim, onHudEnde, onMerksaetze, onHilfe, onCode, onKoennen, onAdmin, onBlaetter }) {
   const spiele = spieleDerStufe(stufe);
   const summe = spiele.reduce((a, g) => a + (progress[g.id] || 0), 0);
   const pill = 'pointer-events-auto whitespace-nowrap flex items-center gap-2 md:gap-3 bg-slate-900/90 backdrop-blur-md border-2 font-bold py-2 md:py-3 px-3 md:px-6 rounded-full transition-all active:scale-95';
@@ -3004,6 +3499,9 @@ function KopfLeiste({ stufe, progress, hudAnim, onHudEnde, onMerksaetze, onHilfe
         <button onClick={onKoennen} title="Das kann ich schon" className={`${pill} hover:bg-lime-500 border-lime-500/50 text-lime-300 hover:text-lime-950 shadow-[0_0_20px_rgba(132,204,22,0.2)]`}>
           <Target className="w-5 h-5 md:w-6 md:h-6" />
           <span className="hidden xl:inline text-sm md:text-base uppercase tracking-wider">Das kann ich schon</span>
+        </button>
+        <button onClick={onBlaetter} aria-label="Arbeitsblätter" title="Arbeitsblätter" className="pointer-events-auto opacity-30 hover:opacity-100 transition-opacity p-2 -mr-2">
+          <Printer className="w-5 h-5 text-slate-400" />
         </button>
         <button onClick={onAdmin} aria-label="Lehrer-Bereich" className="pointer-events-auto opacity-30 hover:opacity-100 transition-opacity p-2">
           <Settings className="w-5 h-5 text-slate-400" />
@@ -3118,14 +3616,17 @@ export default function App() {
   const codeLaden = (r) => { setProgress(r.progress); setSkillLog(skillLogFromLevels(r.skills)); };
   const zeigeKoennen = (fokus = null) => { setKoennenFokus(fokus); setFenster('koennen'); };
   const spiel = spielId ? gameById(spielId) : null;
+  const [blaetter, setBlaetter] = useState(false);   // Arbeitsblatt-Generator offen?
 
   return (
     <SkillContext.Provider value={skillContext}>
-      {/* Erstes Antippen weckt das Tonsystem (iPad) */}
-      <div onPointerDown={tonWecken} className="text-slate-100">
+      <style>{sheetStyles}</style>
+      {blaetter && <BlattStudio stufe={stufe} onClose={() => setBlaetter(false)} />}
+      {/* Erstes Antippen weckt das Tonsystem (iPad); beim Drucken der Arbeitsblätter ist die App ausgeblendet */}
+      <div onPointerDown={tonWecken} className={`text-slate-100 ${blaetter ? 'no-print' : ''}`}>
         <KopfLeiste stufe={stufe} progress={progress} hudAnim={hudAnim} onHudEnde={() => setHudAnim(false)}
           onMerksaetze={() => setFenster('merksaetze')} onHilfe={() => setFenster('hilfe')}
-          onCode={() => setFenster('code')} onKoennen={() => zeigeKoennen(seite === 'spiel' ? spielId : null)} onAdmin={() => setFenster('admin')} />
+          onCode={() => setFenster('code')} onKoennen={() => zeigeKoennen(seite === 'spiel' ? spielId : null)} onAdmin={() => setFenster('admin')} onBlaetter={() => setBlaetter(true)} />
 
         {seite === 'menu' && (
           <div className={`min-h-screen ${HINTERGRUND.menu} p-4 font-sans flex justify-center relative overflow-x-hidden`}>
@@ -3191,7 +3692,7 @@ export default function App() {
         {fenster === 'admin' && <AdminAnmeldung onClose={() => setFenster(null)} onLogin={() => setFenster('lehrer')} onImpressum={() => { setFenster(null); setImpressum('impressum'); }} />}
         {fenster === 'lehrer' && (
           <LehrerBereich onClose={() => setFenster(null)} einst={einst} setEinst={setEinst} progress={progress} setProgress={setProgress} setSkillLog={setSkillLog}
-            onKoennen={() => zeigeKoennen(null)} onSchieberegler={() => { setFenster(null); oeffneErkunden(); }} onImpressum={() => { setFenster(null); setImpressum('impressum'); }} />
+            onKoennen={() => zeigeKoennen(null)} onSchieberegler={() => { setFenster(null); oeffneErkunden(); }} onImpressum={() => { setFenster(null); setImpressum('impressum'); }} onBlaetter={() => { setFenster(null); setBlaetter(true); }} />
         )}
         {fenster === 'belohnung' && (
           <Modal onClose={() => setFenster(null)} titel="Geschafft!" rand="border-amber-400">

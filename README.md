@@ -99,6 +99,25 @@ Mit Passwort (`ADMIN_PASSWORD` in `src/App.jsx`): Stufe wählen, Animationen ein
 - Beim Satzbauen ist jede Reihenfolge richtig, bei der das Hilfsverb an 2. Stelle und ge-Form bzw. Grundform am Ende stehen.
 - Jede Auswahl-Aufgabe hat genau eine richtige Antwort; die Ablenker folgen typischen Kinderfehlern (gehte, gegeht, ihr seit, er hat gelauft).
 
+## Arbeitsblätter
+
+Arbeitsblatt-Generator zum Ausdrucken (A4 hoch, Druck über den Browser). Zugang ohne Passwort über das blasse Drucker-Symbol oben neben dem Zahnrad, außerdem über den Knopf „Arbeitsblätter“ im Lehrer-Bereich.
+
+**Bedienung:** Blatttyp wählen, Klasse 3 oder 4, je nach Blatt die Zeitform, „Lösungsblatt dazu“. „Neue Aufgaben“ mischt neu, „Drucken“ oben rechts. Im Druckfenster „A4“ und „Ränder: keine“ wählen; für Farbe „Hintergrundgrafiken“ einschalten. Die Blätter funktionieren auch in Schwarz-Weiß (Zeitformen sind immer auch mit Namen beschriftet).
+
+**Nummer:** Jedes Blatt hat eine 4-stellige Nummer in der Fußzeile, auch auf der Lösung. Gibt man sie im Generator ein (gleiche Klasse und Einstellung), entsteht genau dieses Blatt noch einmal.
+
+| Blatt | Aufgabe |
+|---|---|
+| Formen-Tabelle | Formen mit „ich“ eintragen wie in der Prüfung: Präsens und Präteritum (Klasse 4 auch Perfekt und Futur) |
+| Endungen einsetzen | Endung an den unterstrichenen Wortstamm setzen und einkreisen (Präsens, Präteritum oder gemischt) |
+| Personalformen | Ein regelmäßiges und ein unregelmäßiges Verb in allen Personen, Präsens und Präteritum |
+| Lückentext | Ein Text der App mit Lücken und Grundform in Klammern; Zeitform wählbar (Klasse 4 auch Perfekt und Futur) |
+| Zeitform bestimmen | Verb unterstreichen und die Zeitform ankreuzen |
+| Verb-Familien | Verbpaare aus dem Kasten in die Häuser ihrer Familie schreiben |
+
+Jedes Blatt beginnt mit einem gelösten Beispiel (gestrichelter Rahmen, Stern). Lösungen stehen in Violett. Wo geschrieben wird: Klasse 3 Zebra-Lineatur ohne Häuschen, Klasse 4 einfache Linien. Alle Aufgaben kommen aus denselben Datenlisten wie die Spiele. Quartett, Würfelspiel und Mini-Übungsheft folgen.
+
 ## Lokal bauen und testen
 
 Git Bash im Repo-Ordner:
@@ -110,5 +129,5 @@ Dann http://localhost:5173/ öffnen. Weitere Prüf-Werkzeuge (Formenliste, Aufga
 
 ## Geplant
 
-- **Arbeitsblätter** zum Ausdrucken aus denselben Datenlisten (Etappe 2).
+- **Arbeitsblätter, Teil 2:** Quartett unregelmäßiger Verben, Würfelspiel „Zeitreise“, Mini-Übungsheft.
 - **Basis-Version** unter `…/zeitreise/basis/` mit Vorlesen, weniger Aufgaben und ohne Profi-Aufgaben (Etappe 3). Vorlesen gibt es nur dort.
