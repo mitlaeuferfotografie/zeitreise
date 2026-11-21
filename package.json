@@ -1,0 +1,12 @@
+{
+  "name": "zeitreise",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zeitreise – Zeitformen der Verben (Klasse 3/4). Gebaut wird mit werkzeuge/lokal_bauen.sh (esbuild + Tailwind CLI).",
+  "dependencies": {
+    "lucide-react": "^0.577.0",
+    "qrcode-generator": "1.4.4",
+    "react": "18.1.0",
+    "react-dom": "18.1.0"
+  }
+}
