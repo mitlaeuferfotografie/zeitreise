@@ -116,7 +116,11 @@ Arbeitsblatt-Generator zum Ausdrucken (A4 hoch, Druck über den Browser). Zugang
 | Zeitform bestimmen | Verb unterstreichen und die Zeitform ankreuzen |
 | Verb-Familien | Verbpaare aus dem Kasten in die Häuser ihrer Familie schreiben |
 
-Jedes Blatt beginnt mit einem gelösten Beispiel (gestrichelter Rahmen, Stern). Lösungen stehen in Violett. Wo geschrieben wird: Klasse 3 Zebra-Lineatur ohne Häuschen, Klasse 4 einfache Linien. Alle Aufgaben kommen aus denselben Datenlisten wie die Spiele. Quartett, Würfelspiel und Mini-Übungsheft folgen.
+| Quartett | Karten zum Ausschneiden: ein unregelmäßiges Verb = ein Quartett (Grundform, Präsens, Präteritum, Klasse 4 ge-Form bzw. Klasse 3 Futur), 8 Quartette auf 4 Seiten, ohne Lösung |
+| Würfelspiel Zeitreise | Spielfeld mit 30 Feldern: Feldfarbe = Zeitform, Augenzahl = Person, Sonderfelder Zeitsprung und Zeitloch; dazu Verbkarten und eine Kontroll-Liste für die Mitspieler |
+| Mini-Übungsheft | Deckblatt mit Abhak-Liste und 5 Übungsseiten (Formen-Tabelle, Endungen, Lückentext, Zeitform bestimmen, Verb-Familien), Lösungen gesammelt am Ende |
+
+Jedes Übungsblatt beginnt mit einem gelösten Beispiel (gestrichelter Rahmen, Stern). Lösungen stehen in Violett. Wo geschrieben wird: Klasse 3 Zebra-Lineatur ohne Häuschen, Klasse 4 einfache Linien. Alle Aufgaben kommen aus denselben Datenlisten wie die Spiele.
 
 ## Lokal bauen und testen
 
@@ -129,5 +133,4 @@ Dann http://localhost:5173/ öffnen. Weitere Prüf-Werkzeuge (Formenliste, Aufga
 
 ## Geplant
 
-- **Arbeitsblätter, Teil 2:** Quartett unregelmäßiger Verben, Würfelspiel „Zeitreise“, Mini-Übungsheft.
 - **Basis-Version** unter `…/zeitreise/basis/` mit Vorlesen, weniger Aufgaben und ohne Profi-Aufgaben (Etappe 3). Vorlesen gibt es nur dort.

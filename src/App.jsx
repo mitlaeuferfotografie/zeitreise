@@ -28,7 +28,7 @@ import React, { createContext, useContext, useEffect, useLayoutEffect, useMemo, 
 import {
   ArrowRight, Award, BookA, BookOpen, Blocks, CircleHelp, Cog, Copy, DoorOpen, Gauge,
   Hammer, Hourglass, House, Key, Lock, Play, Puzzle, RotateCcw, Rocket, ScanEye, ScrollText, Search, Settings,
-  Printer, SlidersHorizontal, Sparkles, Star, X, Trophy, Zap, Flame, CloudRain, Keyboard, Table2, TableProperties, Target, Volume2, Wrench, Shuffle, Users,
+  Dices, Layers, Printer, SlidersHorizontal, Sparkles, Star, X, Trophy, Zap, Flame, CloudRain, Keyboard, Table2, TableProperties, Target, Volume2, Wrench, Shuffle, Users,
 } from 'lucide-react';
 import qrcode from 'qrcode-generator';
 import { createPortal } from 'react-dom';
@@ -3090,10 +3090,10 @@ function ZeitEtikett({ zeit, klein = false }) {
   const Z = ZF[zeit];
   return <span style={{ display: 'inline-block', border: `0.4mm solid ${Z.rand}`, background: Z.flaeche, color: Z.text, borderRadius: '1.2mm', padding: klein ? '0 1.2mm' : '0.4mm 1.8mm', fontSize: klein ? '2.7mm' : '3.4mm', fontWeight: 800, whiteSpace: 'nowrap' }}>{ZEITEN[zeit].name}</span>;
 }
-function BlattKopf({ Icon, titel, text, loesung }) {
+function BlattKopf({ Icon, titel, text, loesung, ohneName = false }) {
   return (
     <div style={{ marginBottom: '5mm' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8mm', fontSize: '3.6mm', marginBottom: '3mm' }}>
+      <div style={{ display: ohneName ? 'none' : 'flex', justifyContent: 'flex-end', gap: '8mm', fontSize: '3.6mm', marginBottom: '3mm' }}>
         <span style={{ display: 'flex', alignItems: 'flex-end', gap: '1.5mm' }}>Name:<span style={{ display: 'inline-block', width: '62mm', borderBottom: `0.3mm solid ${BF.ink}` }} /></span>
         <span style={{ display: 'flex', alignItems: 'flex-end', gap: '1.5mm' }}>Datum:<span style={{ display: 'inline-block', width: '30mm', borderBottom: `0.3mm solid ${BF.ink}` }} /></span>
       </div>
@@ -3130,11 +3130,16 @@ const BLATT_TYPEN = {
   luecken:   { titel: 'Lückentext', Icon: ScrollText, text: () => 'Setze das Verb aus der Klammer in der angegebenen Zeitform ein.', option: 'lueckZeit' },
   bestimmen: { titel: 'Zeitform bestimmen', Icon: Search, text: (k) => `Unterstreiche das Verb${k === 4 ? ' (beide Teile)' : ''} und kreuze die Zeitform an.` },
   familien:  { titel: 'Verb-Familien', Icon: House, text: () => 'Schreibe jedes Verbpaar in das Haus seiner Familie. Streiche es im Kasten durch.' },
+  // Teil 2: eigene Seitenfolgen (siehe blattSeiten)
+  quartett:  { titel: 'Quartett', Icon: Layers, ohneLoesung: true },
+  wuerfel:   { titel: 'Würfelspiel Zeitreise', Icon: Dices, ohneLoesung: true },
+  heft:      { titel: 'Mini-Übungsheft', Icon: BookOpen },
 };
 const BLATT_GRUPPEN = [
   { titel: 'Formen bilden', typen: ['formen', 'endungen', 'personal'] },
   { titel: 'Texte und Sätze', typen: ['luecken', 'bestimmen'] },
-  { titel: 'Unregelmäßige Verben', typen: ['familien'] },
+  { titel: 'Unregelmäßige Verben', typen: ['familien', 'quartett'] },
+  { titel: 'Spielen und Üben', typen: ['wuerfel', 'heft'] },
 ];
 const BLATT_OPTIONEN = {
   endZeit: { label: 'Zeitform', werte: () => [['praesens', 'Präsens'], ['praeteritum', 'Präteritum'], ['gemischt', 'gemischt']] },
@@ -3376,8 +3381,232 @@ function FamilienBlatt({ z, klasse, sol }) {
 
 const BLATT_INHALT = { formen: FormenBlatt, endungen: EndungenBlatt, personal: PersonalBlatt, luecken: LueckenBlatt, bestimmen: BestimmenBlatt, familien: FamilienBlatt };
 
+// ---------- Teil 2 (21.11.2026): Quartett, Würfelspiel „Zeitreise“, Mini-Übungsheft ----------
+
+// Quartett unregelmäßiger Verben: ein Verb = ein Quartett (Entscheidung der Lehrkraft 21.11.2026).
+// Karten: Grundform, Präsens (er), Präteritum (er), Klasse 4 ge-Form bzw. Klasse 3 Futur (er). 8 Karten pro Seite, keine Lösung.
+const QUARTETT_ANZAHL = 8;
+function quartettKarten(v, klasse) {
+  return [
+    { art: 'Grundform', text: v.g, zeit: null },
+    { art: 'Präsens', text: `er ${praesens(v)[2].text}`, zeit: 'praesens' },
+    { art: 'Präteritum', text: `er ${praeteritum(v)[2].text}`, zeit: 'praeteritum' },
+    klasse === 4 ? { art: 'ge-Form', text: partizip(v), zeit: 'perfekt' } : { art: 'Futur', text: `er ${futur(v)[2].text}`, zeit: 'futur' },
+  ];
+}
+function QuartettKarte({ v, nr, karten, k }) {
+  const K = karten[k], Z = K.zeit ? ZF[K.zeit] : { rand: '#57534e', flaeche: '#f5f5f4', text: '#292524' };
+  return (
+    <div style={{ width: '88mm', height: '60mm', border: `0.5mm dashed ${BF.grau}`, padding: '1.5mm', boxSizing: 'border-box' }}>
+      <div style={{ width: '100%', height: '100%', border: `0.6mm solid ${BF.ink}`, borderRadius: '3mm', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: BF.ink, color: '#fff', padding: '1mm 3mm', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '3.6mm', fontWeight: 800 }}>
+          <span>{v.g}</span><span style={{ fontSize: '3mm', opacity: 0.85 }}>Quartett {nr} · Karte {k + 1}</span>
+        </div>
+        <div style={{ display: 'flex', flex: 1 }}>
+          <div style={{ flex: 1, padding: '2mm 3mm', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <span style={{ alignSelf: 'flex-start', border: `0.4mm solid ${Z.rand}`, background: Z.flaeche, color: Z.text, borderRadius: '1.2mm', padding: '0.3mm 1.8mm', fontSize: '3.2mm', fontWeight: 800 }}>{K.art}</span>
+            <span style={{ fontSize: K.text.length > 14 ? '5.6mm' : '7mm', fontWeight: 800, textAlign: 'center', lineHeight: 1.1 }}>{K.text}</span>
+            <span />
+          </div>
+          <div style={{ width: '33mm', borderLeft: `0.3mm solid ${BF.hell}`, padding: '2mm', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.4mm', fontSize: '2.9mm' }}>
+            {karten.map((x, i) => (
+              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '1.2mm', fontWeight: i === k ? 800 : 500, color: i === k ? BF.ink : '#4b5563' }}>
+                <span style={{ width: '3mm', height: '3mm', border: `0.35mm solid ${BF.ink}`, background: i === k ? BF.ink : '#fff', borderRadius: '0.6mm', flexShrink: 0 }} />
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{x.text}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function quartettSeiten(nummer, klasse) {
+  const z = neuerZufall(`quartett|${klasse}|${nummer}`);
+  const verben = z.mix(verbenFuer(klasse, v => v.art === 'u' && v.g !== 'werden')).slice(0, QUARTETT_ANZAHL);
+  const alle = verben.flatMap((v, i) => { const karten = quartettKarten(v, klasse); return karten.map((_, k) => ({ v, nr: i + 1, karten, k })); });
+  const seiten = [];
+  for (let s = 0; s < alle.length; s += 8) {
+    const teil = alle.slice(s, s + 8);
+    seiten.push(
+      <BlattSeite key={'q' + s} fuss={`Quartett · Klasse ${klasse}`} nr={nummer} seite={`Seite ${s / 8 + 1} von ${Math.ceil(alle.length / 8)}`}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3mm', marginBottom: '3mm' }}>
+          <Layers style={{ width: '8mm', height: '8mm', flexShrink: 0 }} strokeWidth={1.8} />
+          <span style={{ fontSize: '6.5mm', fontWeight: 800, whiteSpace: 'nowrap', flexShrink: 0 }}>Verben-Quartett</span>
+          <span style={{ fontSize: '3.1mm', color: '#4b5563' }}>Ausschneiden an der gestrichelten Linie. Wer zu einem Verb alle 4 Karten hat, legt das Quartett ab. Gefragt wird nach der Form: „Hast du von gehen das Präteritum?“</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '88mm 88mm', justifyContent: 'center' }}>
+          {teil.map((c, i) => <QuartettKarte key={i} {...c} />)}
+        </div>
+      </BlattSeite>
+    );
+  }
+  return seiten;
+}
+
+// Würfelspiel „Zeitreise“ (Entscheidung 21.11.2026: Feldfarbe = Zeitform, Augenzahl = Person).
+// Seite 1 Spielfeld mit Regeln, Seite 2 Verbkarten zum Ausschneiden, Seite 3 Kontroll-Liste für die Mitspieler.
+const WUERFEL_PERSONEN = ['ich', 'du', 'er/sie/es', 'wir', 'ihr', 'sie (viele)'];
+function WuerfelAuge({ n, groesse = 7 }) {
+  const P = { 1: [[5, 5]], 2: [[2.8, 2.8], [7.2, 7.2]], 3: [[2.6, 2.6], [5, 5], [7.4, 7.4]], 4: [[2.8, 2.8], [7.2, 2.8], [2.8, 7.2], [7.2, 7.2]], 5: [[2.6, 2.6], [7.4, 2.6], [5, 5], [2.6, 7.4], [7.4, 7.4]], 6: [[2.8, 2.4], [7.2, 2.4], [2.8, 5], [7.2, 5], [2.8, 7.6], [7.2, 7.6]] }[n];
+  return <svg viewBox="0 0 10 10" style={{ width: bm(groesse), height: bm(groesse), flexShrink: 0 }}><rect x="0.5" y="0.5" width="9" height="9" rx="1.8" fill="#fff" stroke={BF.ink} strokeWidth="0.6" />{P.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="0.95" fill={BF.ink} />)}</svg>;
+}
+function wuerfelFelder(z, klasse) {
+  const zeiten = klasse === 4 ? ['praesens', 'praeteritum', 'perfekt', 'futur'] : ['praesens', 'praeteritum', 'futur'];
+  const n = 30, felder = [];
+  const sonder = { 6: 'vor', 13: 'zurueck', 19: 'vor', 25: 'zurueck' };
+  let letzte = null;
+  for (let i = 0; i < n; i++) {
+    if (i === 0) { felder.push({ art: 'start' }); continue; }
+    if (i === n - 1) { felder.push({ art: 'ziel' }); continue; }
+    if (sonder[i]) { felder.push({ art: sonder[i] }); continue; }
+    const moegl = zeiten.filter(t => t !== letzte);
+    const t = moegl[Math.floor(z.rnd() * moegl.length)];
+    letzte = t; felder.push({ art: 'zeit', zeit: t });
+  }
+  return felder;
+}
+function WuerfelFeld({ f, nr }) {
+  const basis = { width: '100%', height: '100%', borderRadius: '3mm', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', fontWeight: 800, textAlign: 'center', lineHeight: 1.05 };
+  const nummer = <span style={{ position: 'absolute', top: '0.8mm', left: '1.4mm', fontSize: '2.6mm', fontWeight: 700, color: BF.grau }}>{nr}</span>;
+  if (f.art === 'zeit') { const Z = ZF[f.zeit]; return <div style={{ ...basis, background: Z.flaeche, border: `0.9mm solid ${Z.rand}`, color: Z.text, fontSize: '3.3mm' }}>{nummer}{ZEITEN[f.zeit].name}</div>; }
+  if (f.art === 'start') return <div style={{ ...basis, background: '#fff', border: `0.9mm solid ${BF.ink}`, fontSize: '4.4mm' }}><Hourglass style={{ width: '7mm', height: '7mm' }} />Start</div>;
+  if (f.art === 'ziel') return <div style={{ ...basis, background: '#fef9c3', border: `0.9mm solid ${BF.ink}`, fontSize: '4.4mm' }}><Trophy style={{ width: '7mm', height: '7mm' }} />Ziel</div>;
+  const vor = f.art === 'vor';
+  return <div style={{ ...basis, background: '#fff', border: `0.9mm ${vor ? 'solid' : 'dashed'} ${BF.ink}`, fontSize: '2.9mm' }}>{nummer}{vor ? <Zap style={{ width: '6mm', height: '6mm' }} /> : <RotateCcw style={{ width: '6mm', height: '6mm' }} />}<span>{vor ? 'Zeitsprung:' : 'Zeitloch:'}<br />{vor ? '2 vor' : '2 zurück'}</span></div>;
+}
+function wuerfelSeiten(nummer, klasse) {
+  const z = neuerZufall(`wuerfel|${klasse}|${nummer}`);
+  const felder = wuerfelFelder(z, klasse);
+  const zeiten = klasse === 4 ? ['praesens', 'praeteritum', 'perfekt', 'futur'] : ['praesens', 'praeteritum', 'futur'];
+  const unreg = z.mix(verbenFuer(klasse, v => v.art === 'u' && v.g !== 'werden')).slice(0, 8);
+  const reg = z.mix(verbenFuer(klasse, v => v.art === 'r' && (klasse === 4 || !besonderheit(v)))).slice(0, 4);
+  const verben = z.mix([...unreg, ...reg]);
+  // Schlangenweg: 6 Spalten × 5 Reihen, jede zweite Reihe von rechts nach links
+  const reihen = Array.from({ length: 5 }, (_, r) => { const zeile = felder.slice(r * 6, r * 6 + 6).map((f, i) => ({ f, nr: r * 6 + i + 1 })); return r % 2 ? zeile.reverse() : zeile; });
+  const feldGr = 27;
+  const spielfeld = (
+    <BlattSeite key="w1" fuss={`Würfelspiel · Klasse ${klasse}`} nr={nummer} seite="Spielfeld">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4mm', marginBottom: '3mm' }}>
+        <span style={{ width: '15mm', height: '15mm', borderRadius: '50%', border: `0.7mm solid ${BF.ink}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Dices style={{ width: '9mm', height: '9mm' }} strokeWidth={1.8} /></span>
+        <div><div style={{ fontSize: '8mm', fontWeight: 800 }}>Würfelspiel Zeitreise</div><div style={{ fontSize: '3.2mm', color: '#4b5563' }}>Für 2–4 Kinder. Ihr braucht einen Würfel, für jedes Kind eine Spielfigur und die Verbkarten.</div></div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5mm', alignItems: 'center' }}>
+        {reihen.map((zeile, r) => (
+          <div key={r} style={{ display: 'flex', gap: '2.5mm' }}>
+            {zeile.map(({ f, nr }) => <div key={nr} style={{ width: bm(feldGr), height: bm(feldGr) }}><WuerfelFeld f={f} nr={nr} /></div>)}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: '5mm', marginTop: '4mm' }}>
+        <div style={{ flex: 1, border: `0.4mm solid ${BF.ink}`, borderRadius: '2.5mm', padding: '2.5mm 3mm' }}>
+          <div style={{ fontWeight: 800, fontSize: '3.8mm', marginBottom: '1.5mm' }}>Die Augenzahl ist die Person</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5mm 3mm', fontSize: '3.6mm', fontWeight: 600 }}>
+            {WUERFEL_PERSONEN.map((p, i) => <span key={p} style={{ display: 'flex', alignItems: 'center', gap: '1.8mm' }}><WuerfelAuge n={i + 1} groesse={6} />{p}</span>)}
+          </div>
+        </div>
+        <div style={{ flex: 1.25, border: `0.4mm solid ${BF.ink}`, borderRadius: '2.5mm', padding: '2.5mm 3mm', fontSize: '3.2mm', lineHeight: 1.35 }}>
+          <div style={{ fontWeight: 800, fontSize: '3.8mm', marginBottom: '1mm' }}>So geht’s</div>
+          1. Würfle und ziehe mit deiner Figur.<br />
+          2. Ziehe eine Verbkarte. Die <b>Farbe des Feldes</b> sagt die Zeitform, die <b>Augenzahl</b> die Person. Sage die Form, z. B. Präteritum + 4 + gehen: „wir gingen“.<br />
+          3. Die anderen prüfen mit der Kontroll-Liste. Richtig: Du bleibst stehen. Falsch: Gehe zurück, wo du warst.<br />
+          4. Zeitsprung: 2 Felder vor. Zeitloch: 2 Felder zurück. Wer zuerst im Ziel ist, gewinnt.
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '2mm', marginTop: '3mm', justifyContent: 'center' }}>{zeiten.map(t => <ZeitEtikett key={t} zeit={t} />)}</div>
+    </BlattSeite>
+  );
+  const karten = (
+    <BlattSeite key="w2" fuss={`Würfelspiel · Klasse ${klasse}`} nr={nummer} seite="Verbkarten">
+      <div style={{ fontSize: '6.5mm', fontWeight: 800, marginBottom: '1mm' }}>Verbkarten zum Ausschneiden</div>
+      <div style={{ fontSize: '3.2mm', color: '#4b5563', marginBottom: '4mm' }}>Ausschneiden an der gestrichelten Linie, gemischt und verdeckt als Stapel hinlegen.</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 60mm)', justifyContent: 'center' }}>
+        {verben.map(v => (
+          <div key={v.g} style={{ width: '60mm', height: '40mm', border: `0.5mm dashed ${BF.grau}`, padding: '1.5mm' }}>
+            <div style={{ width: '100%', height: '100%', border: `0.6mm solid ${BF.ink}`, borderRadius: '3mm', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1mm' }}>
+              <Hourglass style={{ width: '5mm', height: '5mm', color: BF.grau }} />
+              <span style={{ fontSize: '8mm', fontWeight: 800 }}>{v.g}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </BlattSeite>
+  );
+  const kontrolle = (
+    <BlattSeite key="w3" fuss={`Würfelspiel · Klasse ${klasse}`} nr={nummer} seite="Kontroll-Liste">
+      <div style={{ fontSize: '6.5mm', fontWeight: 800, marginBottom: '1mm' }}>Kontroll-Liste</div>
+      <div style={{ fontSize: '3.2mm', color: '#4b5563', marginBottom: '3mm' }}>Hier prüfen die Mitspieler, ob die Form stimmt. {klasse === 4 ? 'Perfekt: haben oder sein + ge-Form. ' : ''}Futur: werden + Grundform (ich werde, du wirst, er wird, wir werden, ihr werdet, sie werden).</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2mm 5mm' }}>
+        {verben.map(v => (
+          <div key={v.g} style={{ border: `0.35mm solid ${BF.hell}`, borderRadius: '2mm', padding: '1.2mm 2.5mm' }}>
+            <div style={{ fontWeight: 800, fontSize: '4mm', marginBottom: '0.8mm' }}>{v.g}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 3mm', fontSize: '2.85mm', lineHeight: 1.2 }}>
+              {['praesens', 'praeteritum'].map(t => (
+                <div key={t}>
+                  <div style={{ color: ZF[t].text, fontWeight: 800 }}>{ZEITEN[t].name}</div>
+                  {WUERFEL_PERSONEN.map((p, i) => <div key={p}>{p.replace(' (viele)', '')} {(t === 'praesens' ? praesens(v) : praeteritum(v))[i].text}</div>)}
+                </div>
+              ))}
+            </div>
+            {klasse === 4 && <div style={{ fontSize: '2.9mm', marginTop: '0.8mm' }}><b style={{ color: ZF.perfekt.text }}>Perfekt:</b> ich {perfekt(v)[0].text}</div>}
+          </div>
+        ))}
+      </div>
+    </BlattSeite>
+  );
+  return [spielfeld, karten, kontrolle];
+}
+
+// Mini-Übungsheft: Deckblatt mit Abhak-Liste, 5 Übungsseiten (neue Aufgaben), Lösungen gesammelt am Ende.
+const HEFT_SEITEN = [
+  { typ: 'formen' },
+  { typ: 'endungen', option: 'gemischt' },
+  { typ: 'luecken', option: (k) => (k === 4 ? 'perfekt' : 'praeteritum') },
+  { typ: 'bestimmen' },
+  { typ: 'familien' },
+];
+function heftSeiten(nummer, klasse, loesung) {
+  const optionVon = (h) => (typeof h.option === 'function' ? h.option(klasse) : h.option || null);
+  const seite = (h, i, sol) => {
+    const T = BLATT_TYPEN[h.typ], Inhalt = BLATT_INHALT[h.typ];
+    const z = neuerZufall(`heft|${klasse}|${nummer}|${i}`);
+    return (
+      <BlattSeite key={(sol ? 'l' : 'a') + i} fuss={`Übungsheft · Klasse ${klasse}`} nr={nummer} seite={sol ? `Lösung zu Seite ${i + 2}` : `Seite ${i + 2}`}>
+        <BlattKopf Icon={T.Icon} titel={`${i + 1}. ${T.titel}`} text={T.text(klasse)} loesung={sol} ohneName />
+        <Inhalt z={z} klasse={klasse} sol={sol} option={optionVon(h)} />
+      </BlattSeite>
+    );
+  };
+  const deckblatt = (
+    <BlattSeite key="deck" fuss={`Übungsheft · Klasse ${klasse}`} nr={nummer} seite="Seite 1">
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '6mm', paddingTop: '14mm', flex: 1 }}>
+        <span style={{ width: '42mm', height: '42mm', borderRadius: '50%', border: `1.2mm solid ${BF.ink}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Hourglass style={{ width: '26mm', height: '26mm' }} strokeWidth={1.6} /></span>
+        <div style={{ fontSize: '13mm', fontWeight: 800, lineHeight: 1.05 }}>Mein Zeitreise-Heft</div>
+        <div style={{ fontSize: '5mm', color: '#4b5563' }}>Zeitformen der Verben · Klasse {klasse}</div>
+        <div style={{ display: 'flex', gap: '2mm' }}>{(klasse === 4 ? ['praesens', 'praeteritum', 'perfekt', 'futur'] : ['praesens', 'praeteritum', 'futur']).map(t => <ZeitEtikett key={t} zeit={t} />)}</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2mm', fontSize: '5mm', marginTop: '4mm' }}>Name:<span style={{ display: 'inline-block', width: '100mm', borderBottom: `0.4mm solid ${BF.ink}` }} /></div>
+        <div style={{ border: `0.5mm solid ${BF.ink}`, borderRadius: '4mm', padding: '5mm 8mm', marginTop: '6mm', textAlign: 'left', width: '130mm' }}>
+          <div style={{ fontSize: '5mm', fontWeight: 800, marginBottom: '3mm' }}>Das habe ich geschafft:</div>
+          {HEFT_SEITEN.map((h, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '3mm', fontSize: '4.6mm', padding: '1.8mm 0', borderTop: i ? `0.3mm solid ${BF.hell}` : 'none' }}>
+              <span style={{ width: '6mm', height: '6mm', border: `0.5mm solid ${BF.ink}`, borderRadius: '1mm', flexShrink: 0 }} />
+              <span style={{ flex: 1 }}>{BLATT_TYPEN[h.typ].titel}</span>
+              <span style={{ color: BF.grau, fontSize: '3.6mm' }}>Seite {i + 2}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </BlattSeite>
+  );
+  const seiten = [deckblatt, ...HEFT_SEITEN.map((h, i) => seite(h, i, false))];
+  return loesung ? [...seiten, ...HEFT_SEITEN.map((h, i) => seite(h, i, true))] : seiten;
+}
+
 // Seiten eines Blattes: Aufgabe + (auf Wunsch) Lösung, beide aus demselben Startwert
 function blattSeiten(typ, nummer, klasse, option, loesung) {
+  if (typ === 'quartett') return quartettSeiten(nummer, klasse);
+  if (typ === 'wuerfel') return wuerfelSeiten(nummer, klasse);
+  if (typ === 'heft') return heftSeiten(nummer, klasse, loesung);
   const T = BLATT_TYPEN[typ], Inhalt = BLATT_INHALT[typ];
   const seite = (sol) => {
     const z = neuerZufall(`${typ}|${klasse}|${option || ''}|${nummer}`);
@@ -3447,7 +3676,7 @@ function BlattStudio({ stufe, onClose }) {
                 {werte.map(([w, l]) => <button key={w} onClick={() => setOptionen(o => ({ ...o, [T.option]: w }))} className={klein(option === w)}>{l}</button>)}
               </span>
             )}
-            <label className="flex items-center gap-2"><input type="checkbox" checked={loesung} onChange={ev => setLoesung(ev.target.checked)} /> Lösungsblatt dazu</label>
+            {!T.ohneLoesung && <label className="flex items-center gap-2"><input type="checkbox" checked={loesung} onChange={ev => setLoesung(ev.target.checked)} /> {typ === 'heft' ? 'Lösungen am Ende' : 'Lösungsblatt dazu'}</label>}
             <label className="flex items-center gap-2">
               <span className="text-slate-400">Nummer:</span>
               <input value={eingabe} inputMode="numeric" maxLength={4} aria-label="Blatt-Nummer" onChange={ev => { const v = ev.target.value.replace(/\D/g, '').slice(0, 4); setEingabe(v); if (v.length === 4) setNummer(v); }} className="w-20 bg-slate-950 border-2 border-slate-700 focus:border-cyan-500 rounded-lg px-2 py-1 text-center font-bold tracking-widest outline-none" />
